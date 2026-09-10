@@ -1,8 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Clip - ClipNow</title>
   <link rel="stylesheet" href="style.css">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -10,284 +9,42 @@
 <body>
 <nav class="navbar">
   <a href="index.html" class="logo">Clip<span>Now</span></a>
-
   <div class="nav-center"></div>
-
   <div class="nav-right">
-
-    <!-- Logged out -->
-    <a href="login.html"
-       id="nav-login"
-       class="btn btn-primary">
-      Sign in
-    </a>
-
-    <!-- Logged in -->
-    <div id="nav-user"
-         style="display:none; align-items:center; gap:12px;">
-
-      <!-- Inbox icon ONLY -->
-      <a href="inbox.html"
-         class="inbox-icon"
-         title="Inbox"
-         aria-label="Inbox">
-
-        <svg
-          width="20"
-          height="20"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="1.8"
-          stroke-linecap="round"
-          stroke-linejoin="round">
-
-          <path d="M4 4h16v16H4z"></path>
-          <path d="M4 9h5l2 3h2l2-3h5"></path>
-
-        </svg>
-
-      </a>
-
-      <!-- Username -->
-      <a href="profile.html"
-         id="nav-username"
-         class="nav-username">
-      </a>
-
-      <!-- Logout -->
-      <button
-        type="button"
-        onclick="logout()"
-        class="btn btn-outline">
-        Logout
-      </button>
-
+    <a href="login.html" id="nav-login" class="btn btn-primary">Sign in</a>
+    <div id="nav-user" style="display:none;align-items:center;gap:12px">
+      <a href="inbox.html" class="inbox-icon" title="Inbox" aria-label="Inbox"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v16H4z"></path><path d="M4 9h5l2 3h2l2-3h5"></path></svg></a>
+      <a href="profile.html" id="nav-username" class="nav-username"></a>
+      <button type="button" onclick="logout()" class="btn btn-outline">Logout</button>
     </div>
-
   </div>
 </nav>
-
-  <div class="container">
-    <div id="error" class="error"></div>
-    <div id="content" style="display:none;">
-      <div class="player">
-        <video id="video" controls playsinline></video>
-      </div>
-      <h1 class="clip-title" id="title" style="-webkit-line-clamp:unset;"></h1>
-      <div class="clip-meta" id="meta"></div>
-      <div class="actions" id="actions"></div>
-      <div class="desc" id="description"></div>
-
-      <div id="comments-wrap" style="max-width:900px;">
-        <h2 class="section-title" style="font-size:16px;margin-bottom:12px;">Comments</h2>
-        <div class="form-group" id="comment-form-wrap" style="display:none;">
-          <textarea id="comment-body" placeholder="Add a comment" maxlength="500"></textarea>
-          <button class="btn btn-green" id="comment-btn" style="margin-top:8px;">Post</button>
-        </div>
-        <div id="comment-list" class="comment-list"></div>
-      </div>
+<div class="container">
+  <div id="error" class="error"></div>
+  <div id="content" style="display:none;">
+    <div class="player"><video id="video" controls playsinline></video></div>
+    <h1 class="clip-title" id="title" style="-webkit-line-clamp:unset;"></h1>
+    <div class="clip-meta" id="meta"></div><div class="actions" id="actions"></div><div class="desc" id="description"></div>
+    <div id="comments-wrap" style="max-width:900px;">
+      <h2 class="section-title" style="font-size:16px;margin-bottom:12px;">Comments</h2>
+      <div class="form-group" id="comment-form-wrap" style="display:none;"><textarea id="comment-body" placeholder="Add a comment" maxlength="500"></textarea><button class="btn btn-green" id="comment-btn" style="margin-top:8px;">Post</button></div>
+      <div id="comment-list" class="comment-list"></div>
     </div>
   </div>
-
-  <script src="app.js"></script>
-  <script>
-    let clip = null;
-    let myProfile = null;
-    let me = null;
-
-    function showError(msg) {
-      const el = document.getElementById("error");
-      el.textContent = msg;
-      el.style.display = "block";
-    }
-
-    async function loadClip() {
-      const id = new URLSearchParams(window.location.search).get("id");
-      me = await getCurrentUser();
-      myProfile = me ? await getProfile() : null;
-
-      let result = await getClipById(id);
-      if (!result.data) {
-        try {
-          const cached = JSON.parse(sessionStorage.getItem("lastClip") || "null");
-          if (cached && cached.id === id) result = { data: cached, error: null };
-        } catch (_) {}
-      }
-
-      if (!result.data) {
-        showError(result.error?.message || "Clip not found or private");
-        return;
-      }
-
-      clip = result.data;
-      const isOwner = !!(me && me.id === clip.user_id);
-      const amDev = myProfile?.is_dev === true;
-
-      if (clip.visibility === "private" && !isOwner && !amDev) {
-        showError("This clip is private");
-        return;
-      }
-
-      document.getElementById("content").style.display = "block";
-      document.getElementById("title").textContent = clip.title || "Untitled";
-      document.title = (clip.title || "Clip") + " - ClipNow";
-
-      const playback = await getClipPlaybackUrl(clip.file_path);
-      const video = document.getElementById("video");
-      video.src = playback;
-      video.onerror = () => {
-        if (!document.getElementById("error").textContent) {
-          showError("Video file could not be loaded. The storage bucket may be private or the file is missing.");
-        }
-      };
-
-      const author = clip.profiles;
-      const handle = author?.username || "";
-      const devBadge = author?.is_dev ? ` <span class="dev-badge">DEV</span>` : "";
-      document.getElementById("meta").innerHTML = `
-        <a href="profile.html?user=${encodeURIComponent(handle)}" style="color:#ccc;">
-          ${escapeHtml(author?.display_name || author?.username || "Unknown")}
-        </a>
-        ${devBadge}
-        <span>• ${clip.views || 0} views</span>
-        <span>• ${escapeHtml(clip.visibility || "public")}</span>
-      `;
-      document.getElementById("description").textContent = clip.description || "";
-
-      if ((clip.visibility === "public" || clip.visibility === "unlisted") && clip.id) {
-        client.from("clips").update({ views: (clip.views || 0) + 1 }).eq("id", clip.id).then(() => {});
-      }
-
-      await renderActions(isOwner, amDev);
-      await loadComments();
-    }
-
-    async function renderActions(isOwner, amDev) {
-      const actions = document.getElementById("actions");
-      let html = "";
-      html += `<button class="btn btn-outline" id="like-btn">Like ${clip.likes_count ? "(" + clip.likes_count + ")" : ""}</button>`;
-      if (me) html += `<button class="btn btn-outline" id="save-btn">Save</button>`;
-      html += `<button class="btn btn-outline" id="copy-btn">Copy link</button>`;
-      if (clip.file_path) html += `<a class="btn btn-outline" id="dl-clip" href="#">Download video</a>`;
-
-      if (isOwner) {
-        if (clip.visibility !== "public") html += `<button class="btn btn-green" onclick="setVisibility('public')">Make Public</button>`;
-        if (clip.visibility !== "unlisted") html += `<button class="btn btn-outline" onclick="setVisibility('unlisted')">Make Unlisted</button>`;
-        if (clip.visibility !== "private") html += `<button class="btn btn-outline" onclick="setVisibility('private')">Make Private</button>`;
-        html += `<button class="btn btn-outline" onclick="deleteClip()">Delete</button>`;
-      } else if (amDev) {
-        html += `<button class="btn btn-outline" onclick="deleteClip()">DEV Delete</button>`;
-      }
-
-      actions.innerHTML = html;
-
-      document.getElementById("like-btn").onclick = likeClip;
-      const saveBtn = document.getElementById("save-btn");
-      if (saveBtn) saveBtn.onclick = saveClip;
-      document.getElementById("copy-btn").onclick = async () => {
-        await navigator.clipboard.writeText(window.location.href);
-        document.getElementById("copy-btn").textContent = "Copied";
-      };
-      const dl = document.getElementById("dl-clip");
-      if (dl) {
-        dl.onclick = async (e) => {
-          e.preventDefault();
-          const url = await getClipPlaybackUrl(clip.file_path);
-          const a = document.createElement("a");
-          a.href = url;
-          a.download = (clip.title || "clip") + ".mp4";
-          a.target = "_blank";
-          a.click();
-        };
-      }
-
-      if (me) document.getElementById("comment-form-wrap").style.display = "block";
-    }
-
-    async function likeClip() {
-      if (!me) { window.location.href = "login.html"; return; }
-      const { error } = await client.from("clip_likes").insert({ user_id: me.id, clip_id: clip.id });
-      if (error && !/duplicate|unique/i.test(error.message || "")) {
-        await client.from("clips").update({ likes_count: (clip.likes_count || 0) + 1 }).eq("id", clip.id);
-      } else if (!error) {
-        await client.from("clips").update({ likes_count: (clip.likes_count || 0) + 1 }).eq("id", clip.id);
-      }
-      clip.likes_count = (clip.likes_count || 0) + 1;
-      document.getElementById("like-btn").textContent = "Liked (" + clip.likes_count + ")";
-    }
-
-    async function saveClip() {
-      const { error } = await client.from("saved_clips").insert({ user_id: me.id, clip_id: clip.id });
-      if (error && !/duplicate|unique/i.test(error.message || "")) {
-        alert(error.message);
-        return;
-      }
-      document.getElementById("save-btn").textContent = "Saved";
-    }
-
-    async function loadComments() {
-      const box = document.getElementById("comment-list");
-      const { data, error } = await client
-        .from("comments")
-        .select("id, body, created_at, user_id")
-        .eq("clip_id", clip.id)
-        .order("created_at", { ascending: false });
-
-      if (error) {
-        box.innerHTML = `<p class="empty">Comments are not enabled yet. Run schema.sql in Supabase to turn them on.</p>`;
-        return;
-      }
-      if (!data.length) {
-        box.innerHTML = `<p class="empty">No comments yet.</p>`;
-        return;
-      }
-
-      const ids = [...new Set(data.map(c => c.user_id))];
-      const { data: profiles } = await client.from("profiles").select("id, username").in("id", ids);
-      const names = {};
-      (profiles || []).forEach(p => { names[p.id] = p.username; });
-      box.innerHTML = data.map(c => `
-        <div class="comment">
-          <div class="who">@${escapeHtml(names[c.user_id] || "user")}</div>
-          <div>${escapeHtml(c.body)}</div>
-        </div>`).join("");
-    }
-
-    document.getElementById("comment-btn").onclick = async () => {
-      if (!clip || !me) {
-        window.location.href = "login.html";
-        return;
-      }
-      const body = document.getElementById("comment-body").value.trim();
-      if (!body) return;
-      const { error } = await client.from("comments").insert({ clip_id: clip.id, user_id: me.id, body });
-      if (error) { alert(error.message); return; }
-      document.getElementById("comment-body").value = "";
-      await loadComments();
-    };
-
-    async function setVisibility(v) {
-      const { error } = await client
-        .from("clips")
-        .update({
-          visibility: v,
-          published_at: v === "public" ? new Date().toISOString() : null
-        })
-        .eq("id", clip.id);
-      if (error) { alert(error.message); return; }
-      location.reload();
-    }
-
-    async function deleteClip() {
-      if (!confirm("Delete this clip forever?")) return;
-      if (clip.file_path) await client.storage.from("clips").remove([clip.file_path]);
-      const { error } = await client.from("clips").delete().eq("id", clip.id);
-      if (error) { alert(error.message); return; }
-      window.location.href = "profile.html";
-    }
-
-    loadClip();
-  </script>
+</div>
+<script src="app.js"></script>
+<script>
+let clip=null,myProfile=null,me=null;
+function showError(msg){const el=document.getElementById("error");el.textContent=msg;el.style.display="block";}
+async function loadClip(){const id=new URLSearchParams(location.search).get("id");me=await getCurrentUser();myProfile=me?await getProfile():null;let result=await getClipById(id);if(!result.data){try{const cached=JSON.parse(sessionStorage.getItem("lastClip")||"null");if(cached&&cached.id===id)result={data:cached,error:null};}catch(_){}}if(!result.data){showError(result.error?.message||"Clip not found or private");return;}clip=result.data;const isOwner=!!(me&&me.id===clip.user_id),amDev=myProfile?.is_dev===true;if(clip.visibility==="private"&&!isOwner&&!amDev){showError("This clip is private");return;}document.getElementById("content").style.display="block";document.getElementById("title").textContent=clip.title||"Untitled";document.title=(clip.title||"Clip")+" - ClipNow";const playback=await getClipPlaybackUrl(clip.file_path),video=document.getElementById("video");video.src=playback;video.onerror=()=>{if(!document.getElementById("error").textContent)showError("Video file could not be loaded.");};const author=clip.profiles,handle=author?.username||"",devBadge=author?.is_dev?' <span class="dev-badge">DEV</span>':"";document.getElementById("meta").innerHTML=`<a href="profile.html?user=${encodeURIComponent(handle)}" style="color:#ccc;">${escapeHtml(author?.display_name||author?.username||"Unknown")}</a>${devBadge}<span>• ${clip.views||0} views</span><span>• ${escapeHtml(clip.visibility||"public")}</span>`;document.getElementById("description").textContent=clip.description||"";if((clip.visibility==="public"||clip.visibility==="unlisted")&&clip.id)client.from("clips").update({views:(clip.views||0)+1}).eq("id",clip.id);await renderActions(isOwner,amDev);await loadComments();}
+async function renderActions(isOwner,amDev){const actions=document.getElementById("actions");let html=`<button class="btn btn-outline" id="like-btn">Like ${clip.likes_count?"("+clip.likes_count+")":""}</button>`;if(me)html+=`<button class="btn btn-outline" id="save-btn">Save</button>`;html+=`<button class="btn btn-outline" id="copy-btn">Copy link</button>`;if(clip.file_path)html+=`<a class="btn btn-outline" id="dl-clip" href="#">Download video</a>`;if(isOwner){if(clip.visibility!=="public")html+=`<button class="btn btn-green" onclick="setVisibility('public')">Make Public</button>`;if(clip.visibility!=="unlisted")html+=`<button class="btn btn-outline" onclick="setVisibility('unlisted')">Make Unlisted</button>`;if(clip.visibility!=="private")html+=`<button class="btn btn-outline" onclick="setVisibility('private')">Make Private</button>`;html+=`<button class="btn btn-outline" onclick="deleteClip()">Delete</button>`;}else if(amDev)html+=`<button class="btn btn-outline" onclick="deleteClip()">DEV Delete</button>`;actions.innerHTML=html;document.getElementById("like-btn").onclick=likeClip;const saveBtn=document.getElementById("save-btn");if(saveBtn)saveBtn.onclick=saveClip;document.getElementById("copy-btn").onclick=async()=>{await navigator.clipboard.writeText(location.href);document.getElementById("copy-btn").textContent="Copied";};if(me)document.getElementById("comment-form-wrap").style.display="block";}
+async function likeClip(){if(!me){location.href="login.html";return;}const{error}=await client.from("clip_likes").insert({user_id:me.id,clip_id:clip.id});if(!error)await client.from("clips").update({likes_count:(clip.likes_count||0)+1}).eq("id",clip.id);clip.likes_count=(clip.likes_count||0)+1;document.getElementById("like-btn").textContent="Liked ("+clip.likes_count+")";}
+async function saveClip(){const{error}=await client.from("saved_clips").insert({user_id:me.id,clip_id:clip.id});if(error&&!/duplicate|unique/i.test(error.message||"")){alert(error.message);return;}document.getElementById("save-btn").textContent="Saved";}
+async function loadComments(){const box=document.getElementById("comment-list");const{data,error}=await client.from("comments").select("id, content, created_at, user_id").eq("clip_id",clip.id).order("created_at",{ascending:false});if(error){box.innerHTML=`<p class="empty">Unable to load comments.</p>`;return;}if(!data?.length){box.innerHTML=`<p class="empty">No comments yet.</p>`;return;}const ids=[...new Set(data.map(c=>c.user_id).filter(Boolean))];const{data:profiles}=await client.from("profiles").select("id, username").in("id",ids);const names={};(profiles||[]).forEach(p=>names[p.id]=p.username);box.innerHTML=data.map(c=>`<div class="comment"><div class="who">@${escapeHtml(names[c.user_id]||"user")}</div><div>${escapeHtml(c.content)}</div></div>`).join("");}
+document.getElementById("comment-btn").onclick=async()=>{if(!clip||!me){location.href="login.html";return;}const content=document.getElementById("comment-body").value.trim();if(!content)return;const{error}=await client.from("comments").insert({clip_id:clip.id,user_id:me.id,content:content});if(error){alert(error.message);return;}document.getElementById("comment-body").value="";await loadComments();};
+async function setVisibility(v){const{error}=await client.from("clips").update({visibility:v,published_at:v==="public"?new Date().toISOString():null}).eq("id",clip.id);if(error){alert(error.message);return;}location.reload();}
+async function deleteClip(){if(!confirm("Delete this clip forever?"))return;if(clip.file_path)await client.storage.from("clips").remove([clip.file_path]);const{error}=await client.from("clips").delete().eq("id",clip.id);if(error){alert(error.message);return;}location.href="profile.html";}
+loadClip();
+</script>
 </body>
 </html>
