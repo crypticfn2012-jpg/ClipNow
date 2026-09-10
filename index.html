@@ -6,67 +6,56 @@
   <title>ClipNow</title>
   <link rel="stylesheet" href="style.css">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    /* ClipNow navbar hard-fallback */
+    nav.navbar {
+      display: flex !important;
+      visibility: visible !important;
+      opacity: 1 !important;
+      position: sticky !important;
+      top: 0 !important;
+      width: 100% !important;
+      min-height: 56px !important;
+      z-index: 99999 !important;
+      background: #0f0f0f !important;
+      border-bottom: 1px solid #222 !important;
+      align-items: center !important;
+      justify-content: space-between !important;
+      padding: 0 24px !important;
+      box-sizing: border-box !important;
+    }
+    nav.navbar .logo { display: inline-block !important; color: #fff !important; font-size: 20px !important; font-weight: 700 !important; }
+    nav.navbar .logo span { color: #22c55e !important; }
+    nav.navbar .nav-right { display: flex !important; align-items: center !important; justify-content: flex-end !important; gap: 12px !important; }
+    nav.navbar #nav-login { display: inline-flex !important; }
+    nav.navbar .inbox-icon { display: inline-flex !important; width: 34px !important; height: 34px !important; align-items: center !important; justify-content: center !important; color: #aaa !important; }
+    nav.navbar .inbox-icon svg { display: block !important; }
+    nav.navbar .nav-username { color: #ccc !important; }
+  </style>
 </head>
 <body>
-  <nav class="navbar">
-  <a href="index.html" class="logo">Clip<span>Now</span></a>
+  <nav class="navbar" id="clipnow-navbar">
+    <a href="index.html" class="logo">Clip<span>Now</span></a>
 
-  <div class="nav-center"></div>
+    <div class="nav-center"></div>
 
-  <div class="nav-right">
+    <div class="nav-right">
+      <a href="login.html" id="nav-login" class="btn btn-primary">Sign in</a>
 
-    <!-- Logged out -->
-    <a href="login.html"
-       id="nav-login"
-       class="btn btn-primary">
-      Sign in
-    </a>
+      <div id="nav-user" style="display:none; align-items:center; gap:12px;">
+        <a href="inbox.html" class="inbox-icon" title="Inbox" aria-label="Inbox">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 4h16v16H4z"></path>
+            <path d="M4 9h5l2 3h2l2-3h5"></path>
+          </svg>
+        </a>
 
-    <!-- Logged in -->
-    <div id="nav-user"
-         style="display:none; align-items:center; gap:12px;">
+        <a href="profile.html" id="nav-username" class="nav-username"></a>
 
-      <!-- Inbox icon ONLY -->
-      <a href="inbox.html"
-         class="inbox-icon"
-         title="Inbox"
-         aria-label="Inbox">
-
-        <svg
-          width="20"
-          height="20"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="1.8"
-          stroke-linecap="round"
-          stroke-linejoin="round">
-
-          <path d="M4 4h16v16H4z"></path>
-          <path d="M4 9h5l2 3h2l2-3h5"></path>
-
-        </svg>
-
-      </a>
-
-      <!-- Username -->
-      <a href="profile.html"
-         id="nav-username"
-         class="nav-username">
-      </a>
-
-      <!-- Logout -->
-      <button
-        type="button"
-        onclick="logout()"
-        class="btn btn-outline">
-        Logout
-      </button>
-
+        <button type="button" onclick="logout()" class="btn btn-outline">Logout</button>
+      </div>
     </div>
-
-  </div>
-</nav>
+  </nav>
 
   <div class="container">
     <div class="page-head">
@@ -118,10 +107,7 @@
       const top = [...recent].sort((a, b) => (b.views || 0) - (a.views || 0)).slice(0, 10);
       const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
       const thisWeek = recent
-        .filter(c => {
-          const t = new Date(c.created_at || 0).getTime();
-          return t >= weekAgo;
-        })
+        .filter(c => new Date(c.created_at || 0).getTime() >= weekAgo)
         .sort((a, b) => (b.views || 0) - (a.views || 0) || (b.likes_count || 0) - (a.likes_count || 0))
         .slice(0, 10);
 
