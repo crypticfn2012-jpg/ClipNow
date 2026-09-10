@@ -8,13 +8,26 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
-<nav class="navbar">
+<nav class="navbar" id="clipnow-navbar">
   <a href="index.html" class="logo">Clip<span>Now</span></a>
-  <div class="nav-center"></div>
+
+  <div class="nav-center">
+    <a href="index.html" id="nav-explore">Explore</a>
+    <a href="upload.html" id="nav-upload">Upload</a>
+    <a href="search.html" id="nav-search">Search</a>
+    <a href="profile.html" id="nav-profile">Profile</a>
+    <a href="download.html" id="nav-download">Download</a>
+  </div>
+
   <div class="nav-right">
     <a href="login.html" id="nav-login" class="btn btn-primary">Sign in</a>
-    <div id="nav-user" style="display:none;align-items:center;gap:12px">
-      <a href="inbox.html" class="inbox-icon" title="Inbox" aria-label="Inbox"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v16H4z"></path><path d="M4 9h5l2 3h2l2-3h5"></path></svg></a>
+    <div id="nav-user">
+      <a href="inbox.html" class="inbox-icon" title="Inbox" aria-label="Inbox">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4 4h16v16H4z"></path>
+          <path d="M4 9h5l2 3h2l2-3h5"></path>
+        </svg>
+      </a>
       <a href="profile.html" id="nav-username" class="nav-username"></a>
       <button type="button" onclick="logout()" class="btn btn-outline">Logout</button>
     </div>
