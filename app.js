@@ -1,5 +1,5 @@
 const SUPABASE_URL = "https://fuffkzhzabnomohlemuz.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ1ZmZremh6YWJub21vaGxlbXV6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkwNjU2NDksImV4cCI6MjEwNDY0MTY0OX0.sATXyTnhsTnFJrz2RF3sfgwzLk15rMeaiGSI7-aQLOk";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IjZmZmZremh6YWJub21vaGxlbXV6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkwNjU2NDksImV4cCI6MjEwNDY0MTY0OX0.sATXyTnhsTnFJrz2RF3sfgwzLk15rMeaiGSI7-aQLOk";
 const CLIPPER_URL = "https://raw.githubusercontent.com/crypticfn2012-jpg/ron-violent-monkey-scripts/main/ron-cliptools.user.js";
 const MAX_STORAGE = 5 * 1024 * 1024 * 1024;
 
@@ -127,28 +127,56 @@ function clipCardHtml(clip, username) {
 }
 
 function ensureNavbar() {
-  if (!document.body || document.querySelector(".navbar")) return;
+  let navbar = document.querySelector("nav.navbar");
 
-  const navbar = document.createElement("nav");
-  navbar.className = "navbar";
-  navbar.innerHTML = `
-    <a href="index.html" class="logo">Clip<span>Now</span></a>
-    <div class="nav-center"></div>
-    <div class="nav-right">
-      <a href="login.html" id="nav-login" class="btn btn-primary">Sign in</a>
-      <div id="nav-user" style="display:none;align-items:center;gap:12px;">
-        <a href="inbox.html" class="inbox-icon" title="Inbox" aria-label="Inbox">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M4 4h16v16H4z"></path>
-            <path d="M4 9h5l2 3h2l2-3h5"></path>
-          </svg>
-        </a>
-        <a href="profile.html" id="nav-username" class="nav-username"></a>
-        <button type="button" onclick="logout()" class="btn btn-outline">Logout</button>
-      </div>
-    </div>`;
+  if (!navbar && document.body) {
+    navbar = document.createElement("nav");
+    navbar.className = "navbar";
+    navbar.innerHTML = `
+      <a href="index.html" class="logo">Clip<span>Now</span></a>
+      <div class="nav-center"></div>
+      <div class="nav-right">
+        <a href="login.html" id="nav-login" class="btn btn-primary">Sign in</a>
+        <div id="nav-user">
+          <a href="inbox.html" class="inbox-icon" title="Inbox" aria-label="Inbox">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v16H4z"></path><path d="M4 9h5l2 3h2l2-3h5"></path></svg>
+          </a>
+          <a href="profile.html" id="nav-username" class="nav-username"></a>
+          <button type="button" onclick="logout()" class="btn btn-outline">Logout</button>
+        </div>
+      </div>`;
+    document.body.insertBefore(navbar, document.body.firstChild);
+  }
 
-  document.body.insertBefore(navbar, document.body.firstChild);
+  if (!navbar) return null;
+
+  navbar.style.setProperty("display", "flex", "important");
+  navbar.style.setProperty("visibility", "visible", "important");
+  navbar.style.setProperty("opacity", "1", "important");
+  navbar.style.setProperty("position", "sticky", "important");
+  navbar.style.setProperty("top", "0", "important");
+  navbar.style.setProperty("width", "100%", "important");
+  navbar.style.setProperty("height", "56px", "important");
+  navbar.style.setProperty("min-height", "56px", "important");
+  navbar.style.setProperty("z-index", "2147483647", "important");
+  navbar.style.setProperty("background", "#0f0f0f", "important");
+  navbar.style.setProperty("border-bottom", "1px solid #222", "important");
+  navbar.style.setProperty("align-items", "center", "important");
+  navbar.style.setProperty("justify-content", "space-between", "important");
+  navbar.style.setProperty("padding", "0 24px", "important");
+  navbar.style.setProperty("box-sizing", "border-box", "important");
+  navbar.style.setProperty("visibility", "visible", "important");
+
+  const logo = navbar.querySelector(".logo");
+  if (logo) logo.style.setProperty("display", "inline-block", "important");
+  const right = navbar.querySelector(".nav-right");
+  if (right) {
+    right.style.setProperty("display", "flex", "important");
+    right.style.setProperty("align-items", "center", "important");
+    right.style.setProperty("justify-content", "flex-end", "important");
+    right.style.setProperty("gap", "12px", "important");
+  }
+  return navbar;
 }
 
 function setActiveNav() {
@@ -160,33 +188,45 @@ function setActiveNav() {
   if (el) el.classList.add("active");
 }
 
-async function updateNavbar() {
-  ensureNavbar();
-
+async function applyNavbarUser(user) {
   const loginBtn = document.getElementById("nav-login");
   const userArea = document.getElementById("nav-user");
   const usernameEl = document.getElementById("nav-username");
 
-  // Keep the navbar visible immediately. Only the account controls change.
-  if (loginBtn) loginBtn.style.display = "inline-flex";
-  if (userArea) userArea.style.display = "none";
-
-  const user = await getCurrentUser();
-
-  if (user) {
-    if (loginBtn) loginBtn.style.display = "none";
-    if (userArea) userArea.style.display = "flex";
-    if (usernameEl) {
-      const profile = await getProfile();
-      if (profile?.is_dev) {
-        usernameEl.innerHTML = "@" + escapeHtml(profile.username || "dev") + ' <span class="dev-badge">DEV</span>';
-      } else {
-        usernameEl.textContent = profile?.username ? "@" + profile.username : "@Account";
-      }
-    }
+  if (!user) {
+    if (loginBtn) loginBtn.style.setProperty("display", "inline-flex", "important");
+    if (userArea) userArea.style.setProperty("display", "none", "important");
+    return;
   }
 
+  if (loginBtn) loginBtn.style.setProperty("display", "none", "important");
+  if (userArea) userArea.style.setProperty("display", "flex", "important");
+
+  if (usernameEl) {
+    const profile = await getProfileById(user.id);
+    if (profile?.is_dev) {
+      usernameEl.innerHTML = "@" + escapeHtml(profile.username || "dev") + ' <span class="dev-badge">DEV</span>';
+    } else {
+      usernameEl.textContent = profile?.username ? "@" + profile.username : "@Account";
+    }
+  }
+}
+
+async function updateNavbar() {
+  ensureNavbar();
   setActiveNav();
+
+  try {
+    const { data: { session } } = await client.auth.getSession();
+    await applyNavbarUser(session?.user || null);
+  } catch (error) {
+    console.error("Navbar auth state:", error);
+    await applyNavbarUser(null);
+  }
+
+  client.auth.onAuthStateChange((_event, session) => {
+    applyNavbarUser(session?.user || null);
+  });
 }
 
 if (document.readyState === "loading") {
