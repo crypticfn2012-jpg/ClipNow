@@ -7,51 +7,30 @@
   <link rel="stylesheet" href="style.css">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
-    /* ClipNow navbar hard-fallback */
-    nav.navbar {
-      display: flex !important;
-      visibility: visible !important;
-      opacity: 1 !important;
-      position: sticky !important;
-      top: 0 !important;
-      width: 100% !important;
-      min-height: 56px !important;
-      z-index: 99999 !important;
-      background: #0f0f0f !important;
-      border-bottom: 1px solid #222 !important;
-      align-items: center !important;
-      justify-content: space-between !important;
-      padding: 0 24px !important;
-      box-sizing: border-box !important;
-    }
-    nav.navbar .logo { display: inline-block !important; color: #fff !important; font-size: 20px !important; font-weight: 700 !important; }
-    nav.navbar .logo span { color: #22c55e !important; }
-    nav.navbar .nav-right { display: flex !important; align-items: center !important; justify-content: flex-end !important; gap: 12px !important; }
-    nav.navbar #nav-login { display: inline-flex !important; }
-    nav.navbar .inbox-icon { display: inline-flex !important; width: 34px !important; height: 34px !important; align-items: center !important; justify-content: center !important; color: #aaa !important; }
-    nav.navbar .inbox-icon svg { display: block !important; }
-    nav.navbar .nav-username { color: #ccc !important; }
+    nav.navbar { display:flex !important; visibility:visible !important; opacity:1 !important; position:sticky !important; top:0 !important; width:100% !important; min-height:56px !important; z-index:99999 !important; background:#0f0f0f !important; border-bottom:1px solid #222 !important; align-items:center !important; justify-content:space-between !important; padding:0 24px !important; box-sizing:border-box !important; }
+    nav.navbar .logo { display:inline-block !important; color:#fff !important; font-size:20px !important; font-weight:700 !important; }
+    nav.navbar .logo span { color:#22c55e !important; }
+    nav.navbar .nav-right { display:flex !important; align-items:center !important; justify-content:flex-end !important; gap:12px !important; }
+    nav.navbar #nav-login { display:inline-flex; }
+    nav.navbar #nav-user { display:none; align-items:center; gap:12px; }
+    nav.navbar .inbox-icon { display:inline-flex !important; width:34px !important; height:34px !important; align-items:center !important; justify-content:center !important; color:#aaa !important; border-radius:9px; }
+    nav.navbar .inbox-icon:hover { background:rgba(255,255,255,.07); color:#fff !important; }
+    nav.navbar .inbox-icon svg { display:block !important; }
+    nav.navbar .nav-username { color:#ccc !important; text-decoration:none; }
+    nav.navbar .nav-username:hover { color:#fff !important; }
   </style>
 </head>
 <body>
   <nav class="navbar" id="clipnow-navbar">
     <a href="index.html" class="logo">Clip<span>Now</span></a>
-
     <div class="nav-center"></div>
-
     <div class="nav-right">
       <a href="login.html" id="nav-login" class="btn btn-primary">Sign in</a>
-
-      <div id="nav-user" style="display:none; align-items:center; gap:12px;">
+      <div id="nav-user">
         <a href="inbox.html" class="inbox-icon" title="Inbox" aria-label="Inbox">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M4 4h16v16H4z"></path>
-            <path d="M4 9h5l2 3h2l2-3h5"></path>
-          </svg>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v16H4z"></path><path d="M4 9h5l2 3h2l2-3h5"></path></svg>
         </a>
-
         <a href="profile.html" id="nav-username" class="nav-username"></a>
-
         <button type="button" onclick="logout()" class="btn btn-outline">Logout</button>
       </div>
     </div>
@@ -65,22 +44,11 @@
       </div>
       <a href="download.html" class="btn btn-green">Download Clipper</a>
     </div>
-
-    <div class="section-head">
-      <h2 class="section-title">Top 10 most viewed</h2>
-      <a href="discover.html?sort=views" class="muted-link">See all</a>
-    </div>
+    <div class="section-head"><h2 class="section-title">Top 10 most viewed</h2><a href="discover.html?sort=views" class="muted-link">See all</a></div>
     <div id="top-viewed" class="clip-grid"><p class="empty">Loading...</p></div>
-
-    <div class="section-head">
-      <h2 class="section-title">Popular this week</h2>
-    </div>
+    <div class="section-head"><h2 class="section-title">Popular this week</h2></div>
     <div id="popular-week" class="clip-grid"><p class="empty">Loading...</p></div>
-
-    <div class="section-head">
-      <h2 class="section-title">Latest</h2>
-      <a href="discover.html" class="muted-link">Discover all clips</a>
-    </div>
+    <div class="section-head"><h2 class="section-title">Latest</h2><a href="discover.html" class="muted-link">Discover all clips</a></div>
     <div id="latest" class="clip-grid"><p class="empty">Loading...</p></div>
   </div>
 
@@ -88,34 +56,19 @@
   <script>
     function renderGrid(id, clips, emptyText) {
       const el = document.getElementById(id);
-      if (!clips || !clips.length) {
-        el.innerHTML = `<p class="empty">${emptyText}</p>`;
-        return;
-      }
+      if (!clips || !clips.length) { el.innerHTML = `<p class="empty">${emptyText}</p>`; return; }
       el.innerHTML = clips.map(c => clipCardHtml(c)).join("");
     }
-
     async function loadHome() {
-      const { data: recent, error } = await getPublicClips({ limit: 80, order: "created_at" });
-      if (error) {
-        renderGrid("top-viewed", [], escapeHtml(error.message));
-        renderGrid("popular-week", [], "");
-        renderGrid("latest", [], "");
-        return;
-      }
-
-      const top = [...recent].sort((a, b) => (b.views || 0) - (a.views || 0)).slice(0, 10);
-      const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
-      const thisWeek = recent
-        .filter(c => new Date(c.created_at || 0).getTime() >= weekAgo)
-        .sort((a, b) => (b.views || 0) - (a.views || 0) || (b.likes_count || 0) - (a.likes_count || 0))
-        .slice(0, 10);
-
-      renderGrid("top-viewed", top, "No public clips yet.");
-      renderGrid("popular-week", thisWeek.length ? thisWeek : top.slice(0, 8), "Nothing new this week yet.");
-      renderGrid("latest", recent.slice(0, 12), "No public clips yet. Be the first to upload!");
+      const { data: recent, error } = await getPublicClips({ limit:80, order:"created_at" });
+      if (error) { renderGrid("top-viewed",[],escapeHtml(error.message)); renderGrid("popular-week",[],""); renderGrid("latest",[],""); return; }
+      const top = [...recent].sort((a,b)=>(b.views||0)-(a.views||0)).slice(0,10);
+      const weekAgo = Date.now()-7*24*60*60*1000;
+      const thisWeek = recent.filter(c=>new Date(c.created_at||0).getTime()>=weekAgo).sort((a,b)=>(b.views||0)-(a.views||0)||(b.likes_count||0)-(a.likes_count||0)).slice(0,10);
+      renderGrid("top-viewed",top,"No public clips yet.");
+      renderGrid("popular-week",thisWeek.length?thisWeek:top.slice(0,8),"Nothing new this week yet.");
+      renderGrid("latest",recent.slice(0,12),"No public clips yet. Be the first to upload!");
     }
-
     loadHome();
   </script>
 </body>
