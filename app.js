@@ -26,8 +26,13 @@ function sanitizeUsername(raw) {
 }
 
 async function getCurrentUser() {
-  const { data: { session } } = await client.auth.getSession();
-  return session?.user || null;
+  try {
+    const { data: { session } } = await client.auth.getSession();
+    return session?.user || null;
+  } catch (error) {
+    console.error("getCurrentUser:", error);
+    return null;
+  }
 }
 
 async function requireLogin() {
@@ -121,9 +126,9 @@ function clipCardHtml(clip, username) {
   return `<a href="clip.html?id=${encodeURIComponent(clip.id)}" class="clip-card"><div class="clip-thumb"><span class="play-icon">▶</span></div><div class="clip-info"><div class="clip-title">${escapeHtml(clip.title || "Untitled")}</div><div class="clip-meta">${escapeHtml(name)} • ${Number(clip.views) || 0} views${escapeHtml(vis)}</div></div></a>`;
 }
 
-/* Creates the navbar only on pages that do not already contain one. */
 function ensureNavbar() {
-  if (document.querySelector(".navbar")) return;
+  if (!document.body || document.querySelector(".navbar")) return;
+
   const navbar = document.createElement("nav");
   navbar.className = "navbar";
   navbar.innerHTML = `
@@ -133,12 +138,16 @@ function ensureNavbar() {
       <a href="login.html" id="nav-login" class="btn btn-primary">Sign in</a>
       <div id="nav-user" style="display:none;align-items:center;gap:12px;">
         <a href="inbox.html" class="inbox-icon" title="Inbox" aria-label="Inbox">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v16H4z"></path><path d="M4 9h5l2 3h2l2-3h5"></path></svg>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 4h16v16H4z"></path>
+            <path d="M4 9h5l2 3h2l2-3h5"></path>
+          </svg>
         </a>
         <a href="profile.html" id="nav-username" class="nav-username"></a>
         <button type="button" onclick="logout()" class="btn btn-outline">Logout</button>
       </div>
     </div>`;
+
   document.body.insertBefore(navbar, document.body.firstChild);
 }
 
@@ -153,10 +162,16 @@ function setActiveNav() {
 
 async function updateNavbar() {
   ensureNavbar();
-  const user = await getCurrentUser();
+
   const loginBtn = document.getElementById("nav-login");
   const userArea = document.getElementById("nav-user");
   const usernameEl = document.getElementById("nav-username");
+
+  // Keep the navbar visible immediately. Only the account controls change.
+  if (loginBtn) loginBtn.style.display = "inline-flex";
+  if (userArea) userArea.style.display = "none";
+
+  const user = await getCurrentUser();
 
   if (user) {
     if (loginBtn) loginBtn.style.display = "none";
@@ -166,14 +181,16 @@ async function updateNavbar() {
       if (profile?.is_dev) {
         usernameEl.innerHTML = "@" + escapeHtml(profile.username || "dev") + ' <span class="dev-badge">DEV</span>';
       } else {
-        usernameEl.textContent = profile?.username ? "@" + profile.username : "Account";
+        usernameEl.textContent = profile?.username ? "@" + profile.username : "@Account";
       }
     }
-  } else {
-    if (loginBtn) loginBtn.style.display = "inline-flex";
-    if (userArea) userArea.style.display = "none";
   }
+
   setActiveNav();
 }
 
-document.addEventListener("DOMContentLoaded", updateNavbar);
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", updateNavbar, { once: true });
+} else {
+  updateNavbar();
+}
