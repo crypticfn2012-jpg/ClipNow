@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Download Clipper - ClipNow</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+  <nav class="navbar">
+  <a href="index.html" class="logo">Clip<span>Now</span></a>
+
+  <div class="nav-center"></div>
+
+  <div class="nav-right">
+
+    <!-- Logged out -->
+    <a href="login.html"
+       id="nav-login"
+       class="btn btn-primary">
+      Sign in
+    </a>
+
+    <!-- Logged in -->
+    <div id="nav-user"
+         style="display:none; align-items:center; gap:12px;">
+
+      <!-- Inbox icon ONLY -->
+      <a href="inbox.html"
+         class="inbox-icon"
+         title="Inbox"
+         aria-label="Inbox">
+
+        <svg
+          width="20"
+          height="20"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.8"
+          stroke-linecap="round"
+          stroke-linejoin="round">
+
+          <path d="M4 4h16v16H4z"></path>
+          <path d="M4 9h5l2 3h2l2-3h5"></path>
+
+        </svg>
+
+      </a>
+
+      <!-- Username -->
+      <a href="profile.html"
+         id="nav-username"
+         class="nav-username">
+      </a>
+
+      <!-- Logout -->
+      <button
+        type="button"
+        onclick="logout()"
+        class="btn btn-outline">
+        Logout
+      </button>
+
+    </div>
+
+  </div>
+</nav>
+
+  <div class="container" style="max-width:680px;">
+    <h1 class="page-title">Download Clipper</h1>
+    <p class="page-sub">RON ClipTools captures real 1080p60 clips on BuildNow.GG. Install the userscript, clip in-game, then upload here.</p>
+
+    <a class="btn btn-green" id="download-script" href="https://raw.githubusercontent.com/crypticfn2012-jpg/ron-violent-monkey-scripts/main/ron-cliptools.user.js" download="ron-cliptools.user.js" style="padding:12px 18px;">
+      Download RON ClipTools
+    </a>
+    <a class="btn btn-outline" href="https://violentmonkey.github.io/get-it/" target="_blank" rel="noopener" style="margin-left:8px;">Get Violentmonkey</a>
+
+    <div class="steps">
+      <div class="step">
+        <b>1. Install Violentmonkey</b>
+        <span>Chrome, Edge, Firefox, or any Chromium browser. Tampermonkey also works.</span>
+      </div>
+      <div class="step">
+        <b>2. Install the script</b>
+        <span>Click Download RON ClipTools. Violentmonkey should offer to install it. If it only downloads a file, open Violentmonkey → New → paste the file contents → Save.</span>
+      </div>
+      <div class="step">
+        <b>3. Open BuildNow.GG</b>
+        <span>Play on buildnow.gg or CrazyGames. The ClipTools panel appears on the game canvas.</span>
+      </div>
+      <div class="step">
+        <b>4. Clip, then upload</b>
+        <span>Press <span class="kbd">F9</span> for a 15s clip, <span class="kbd">F8</span> for a screenshot, <span class="kbd">F7</span> to toggle the panel. Then come back and upload the file.</span>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+  <script>
+    document.getElementById("download-script").addEventListener("click", (e) => {
+      e.preventDefault();
+      const url = CLIPPER_URL;
+      window.open(url, "_blank", "noopener");
+    });
+  </script>
+</body>
+</html>

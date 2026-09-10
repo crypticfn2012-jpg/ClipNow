@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Upload - ClipNow</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+ <nav class="navbar">
+  <a href="index.html" class="logo">Clip<span>Now</span></a>
+
+  <div class="nav-center"></div>
+
+  <div class="nav-right">
+
+    <!-- Logged out -->
+    <a href="login.html"
+       id="nav-login"
+       class="btn btn-primary">
+      Sign in
+    </a>
+
+    <!-- Logged in -->
+    <div id="nav-user"
+         style="display:none; align-items:center; gap:12px;">
+
+      <!-- Inbox icon ONLY -->
+      <a href="inbox.html"
+         class="inbox-icon"
+         title="Inbox"
+         aria-label="Inbox">
+
+        <svg
+          width="20"
+          height="20"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.8"
+          stroke-linecap="round"
+          stroke-linejoin="round">
+
+          <path d="M4 4h16v16H4z"></path>
+          <path d="M4 9h5l2 3h2l2-3h5"></path>
+
+        </svg>
+
+      </a>
+
+      <!-- Username -->
+      <a href="profile.html"
+         id="nav-username"
+         class="nav-username">
+      </a>
+
+      <!-- Logout -->
+      <button
+        type="button"
+        onclick="logout()"
+        class="btn btn-outline">
+        Logout
+      </button>
+
+    </div>
+
+  </div>
+</nav>
+
+  <div class="container" style="max-width:560px;">
+    <h1 class="page-title">Upload Clip</h1>
+    <p class="page-sub">Upload an MP4 or WebM from RON ClipTools (F9 on BuildNow.GG).</p>
+    <div id="error" class="error"></div>
+    <div id="success" class="success"></div>
+
+    <div class="form-group">
+      <label>Video (MP4 / WebM)</label>
+      <input type="file" id="file" accept="video/mp4,video/webm,.mp4,.webm">
+    </div>
+    <div class="form-group">
+      <label>Title</label>
+      <input type="text" id="title" maxlength="120" placeholder="Title">
+    </div>
+    <div class="form-group">
+      <label>Description</label>
+      <textarea id="description" placeholder="Optional"></textarea>
+    </div>
+    <div class="form-group">
+      <label>Visibility</label>
+      <select id="visibility">
+        <option value="public">Public (everyone)</option>
+        <option value="unlisted">Unlisted (link only)</option>
+        <option value="private">Private (only you)</option>
+      </select>
+    </div>
+
+    <button id="upload-btn" class="btn btn-green" style="width:100%;padding:12px;">Upload Clip</button>
+    <div id="progress" style="display:none;margin-top:14px;height:6px;background:#222;border-radius:99px;overflow:hidden;">
+      <div id="progress-fill" style="height:100%;width:0%;background:#22c55e;transition:width .25s;"></div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+  <script>
+    document.getElementById("file").addEventListener("change", () => {
+      const file = document.getElementById("file").files[0];
+      const title = document.getElementById("title");
+      if (file && !title.value.trim()) {
+        title.value = file.name.replace(/\.[^.]+$/, "").replace(/[-_]/g, " ");
+      }
+    });
+
+    async function insertClip(payload) {
+      let { data, error } = await client.from("clips").insert(payload).select("id").maybeSingle();
+      if (error && /column|schema cache/i.test(error.message || "")) {
+        const minimal = {
+          user_id: payload.user_id,
+          title: payload.title,
+          description: payload.description,
+          file_path: payload.file_path,
+          file_size: payload.file_size,
+          visibility: payload.visibility,
+          views: 0
+        };
+        ({ data, error } = await client.from("clips").insert(minimal).select("id").maybeSingle());
+      }
+      if (error) throw error;
+      if (data?.id) return data;
+
+      const { data: latest } = await client
+        .from("clips")
+        .select("id")
+        .eq("user_id", payload.user_id)
+        .eq("file_path", payload.file_path)
+        .maybeSingle();
+      if (latest?.id) return latest;
+      throw new Error("Clip uploaded but the database did not return an id. Run schema.sql in Supabase.");
+    }
+
+    document.getElementById("upload-btn").onclick = async () => {
+      const errorEl = document.getElementById("error");
+      const successEl = document.getElementById("success");
+      const btn = document.getElementById("upload-btn");
+      const progress = document.getElementById("progress");
+      const fill = document.getElementById("progress-fill");
+
+      errorEl.style.display = "none";
+      successEl.style.display = "none";
+
+      const file = document.getElementById("file").files[0];
+      const title = document.getElementById("title").value.trim();
+      const description = document.getElementById("description").value.trim();
+      const visibility = document.getElementById("visibility").value;
+
+      if (!file) { errorEl.textContent = "Select a video"; errorEl.style.display = "block"; return; }
+      if (!title) { errorEl.textContent = "Enter a title"; errorEl.style.display = "block"; return; }
+
+      const user = await requireLogin();
+      if (!user) return;
+
+      btn.disabled = true;
+      btn.textContent = "Uploading...";
+      progress.style.display = "block";
+      fill.style.width = "20%";
+
+      try {
+        const profile = await getProfile();
+        if (!profile) throw new Error("Profile not loaded. Sign out, sign back in, then try again.");
+
+        const used = profile.storage_used || 0;
+        if (used + file.size > MAX_STORAGE) throw new Error("5GB storage limit reached");
+
+        const ext = (file.name.split(".").pop() || "mp4").toLowerCase();
+        const filePath = user.id + "/" + Date.now() + "." + ext;
+
+        fill.style.width = "45%";
+        const { error: upErr } = await client.storage.from("clips").upload(filePath, file, {
+          contentType: file.type || (ext === "webm" ? "video/webm" : "video/mp4"),
+          upsert: false
+        });
+        if (upErr) throw upErr;
+
+        fill.style.width = "75%";
+        const clip = await insertClip({
+          user_id: user.id,
+          title,
+          description: description || null,
+          file_path: filePath,
+          file_size: file.size,
+          visibility,
+          views: 0,
+          likes_count: 0,
+          comments_count: 0,
+          published_at: visibility === "public" ? new Date().toISOString() : null
+        });
+
+        await client.from("profiles").update({ storage_used: used + file.size }).eq("id", user.id);
+
+        sessionStorage.setItem("lastClip", JSON.stringify({
+          id: clip.id,
+          user_id: user.id,
+          title,
+          description,
+          file_path: filePath,
+          file_size: file.size,
+          visibility,
+          views: 0,
+          profiles: {
+            id: profile.id,
+            username: profile.username,
+            display_name: profile.display_name,
+            avatar_url: profile.avatar_url,
+            is_dev: profile.is_dev
+          }
+        }));
+
+        fill.style.width = "100%";
+        successEl.textContent = "Uploaded!";
+        successEl.style.display = "block";
+        setTimeout(() => { window.location.href = "clip.html?id=" + clip.id; }, 500);
+      } catch (err) {
+        console.error(err);
+        errorEl.textContent = err.message || "Upload failed";
+        errorEl.style.display = "block";
+        btn.disabled = false;
+        btn.textContent = "Upload Clip";
+        progress.style.display = "none";
+      }
+    };
+  </script>
+</body>
+</html>

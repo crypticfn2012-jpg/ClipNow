@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Search - ClipNow</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+  <nav class="navbar">
+  <a href="index.html" class="logo">Clip<span>Now</span></a>
+
+  <div class="nav-center"></div>
+
+  <div class="nav-right">
+
+    <!-- Logged out -->
+    <a href="login.html"
+       id="nav-login"
+       class="btn btn-primary">
+      Sign in
+    </a>
+
+    <!-- Logged in -->
+    <div id="nav-user"
+         style="display:none; align-items:center; gap:12px;">
+
+      <!-- Inbox icon ONLY -->
+      <a href="inbox.html"
+         class="inbox-icon"
+         title="Inbox"
+         aria-label="Inbox">
+
+        <svg
+          width="20"
+          height="20"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.8"
+          stroke-linecap="round"
+          stroke-linejoin="round">
+
+          <path d="M4 4h16v16H4z"></path>
+          <path d="M4 9h5l2 3h2l2-3h5"></path>
+
+        </svg>
+
+      </a>
+
+      <!-- Username -->
+      <a href="profile.html"
+         id="nav-username"
+         class="nav-username">
+      </a>
+
+      <!-- Logout -->
+      <button
+        type="button"
+        onclick="logout()"
+        class="btn btn-outline">
+        Logout
+      </button>
+
+    </div>
+
+  </div>
+</nav>
+  <div class="container">
+    <h1 class="page-title">Search</h1>
+    <div class="search-box">
+      <input type="text" id="q" placeholder="Search clips, usernames..." autofocus>
+      <button type="button" onclick="doSearch()">Search</button>
+    </div>
+    <div id="results">
+      <p class="empty">Type something to search.</p>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+  <script>
+    function safeTerm(q) {
+      return q.replace(/[,%()]/g, " ").trim();
+    }
+
+    async function doSearch() {
+      const q = safeTerm(document.getElementById("q").value);
+      const results = document.getElementById("results");
+      if (!q) {
+        results.innerHTML = `<p class="empty">Type something to search.</p>`;
+        return;
+      }
+
+      results.innerHTML = `<p class="empty">Searching...</p>`;
+
+      const { data: users } = await client
+        .from("profiles")
+        .select("id, username, display_name, avatar_url, bio")
+        .or(`username.ilike.%${q}%,display_name.ilike.%${q}%`)
+        .limit(10);
+
+      const { data: clips } = await client
+        .from("clips")
+        .select("id, title, views, user_id")
+        .eq("visibility", "public")
+        .ilike("title", `%${q}%`)
+        .limit(15);
+
+      let html = "";
+
+      if (users && users.length) {
+        html += `<div class="section"><h2 class="section-title">Users</h2>`;
+        users.forEach(u => {
+          const avatar = u.avatar_url
+            ? `<img src="${escapeHtml(u.avatar_url)}" class="avatar-sm" alt="">`
+            : `<div class="avatar-sm">${escapeHtml((u.username || "?").charAt(0).toUpperCase())}</div>`;
+          html += `
+            <a href="profile.html?user=${encodeURIComponent(u.username)}" class="user-card">
+              ${avatar}
+              <div>
+                <div style="font-weight:500">${escapeHtml(u.display_name || u.username)}</div>
+                <div style="font-size:13px;color:#888">@${escapeHtml(u.username)}</div>
+              </div>
+            </a>`;
+        });
+        html += `</div>`;
+      }
+
+      if (clips && clips.length) {
+        html += `<div class="section"><h2 class="section-title">Clips</h2><div class="clip-grid">`;
+        html += clips.map(c => clipCardHtml(c)).join("");
+        html += `</div></div>`;
+      }
+
+      if (!html) html = `<p class="empty">No results found for "${escapeHtml(q)}"</p>`;
+      results.innerHTML = html;
+    }
+
+    document.getElementById("q").addEventListener("keydown", (e) => {
+      if (e.key === "Enter") doSearch();
+    });
+
+    const initial = new URLSearchParams(window.location.search).get("q");
+    if (initial) {
+      document.getElementById("q").value = initial;
+      doSearch();
+    }
+  </script>
+</body>
+</html>

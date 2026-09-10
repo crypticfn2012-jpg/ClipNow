@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <title>Discover — ClipNow</title>
+
+  <link rel="stylesheet" href="style.css">
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <style>
+
+    .discover-controls {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 25px;
+      flex-wrap: wrap;
+    }
+
+    .discover-search {
+      flex: 1;
+      min-width: 220px;
+      height: 44px;
+      padding: 0 15px;
+      border-radius: 10px;
+      border: 1px solid rgba(255,255,255,.09);
+      background: rgba(255,255,255,.035);
+      color: #fff;
+      outline: none;
+      font-family: inherit;
+    }
+
+    .discover-search:focus {
+      border-color: rgba(34,197,94,.5);
+    }
+
+    .discover-search::placeholder {
+      color: #666;
+    }
+
+    .sort-select {
+      height: 44px;
+      padding: 0 13px;
+      border-radius: 10px;
+      border: 1px solid rgba(255,255,255,.09);
+      background: #151515;
+      color: #ddd;
+      outline: none;
+      cursor: pointer;
+    }
+
+    .discover-count {
+      color: #666;
+      font-size: 13px;
+      margin-bottom: 15px;
+    }
+
+    .discover-loading {
+      padding: 50px 0;
+      text-align: center;
+      color: #777;
+    }
+
+    .discover-empty {
+      padding: 70px 20px;
+      text-align: center;
+      color: #777;
+      grid-column: 1 / -1;
+    }
+
+    .discover-empty h2 {
+      color: #ddd;
+      margin-bottom: 7px;
+    }
+
+  </style>
+
+</head>
+
+<body>
+
+<nav class="navbar">
+  <a href="index.html" class="logo">Clip<span>Now</span></a>
+
+  <div class="nav-center"></div>
+
+  <div class="nav-right">
+
+    <!-- Logged out -->
+    <a href="login.html"
+       id="nav-login"
+       class="btn btn-primary">
+      Sign in
+    </a>
+
+    <!-- Logged in -->
+    <div id="nav-user"
+         style="display:none; align-items:center; gap:12px;">
+
+      <!-- Inbox icon ONLY -->
+      <a href="inbox.html"
+         class="inbox-icon"
+         title="Inbox"
+         aria-label="Inbox">
+
+        <svg
+          width="20"
+          height="20"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.8"
+          stroke-linecap="round"
+          stroke-linejoin="round">
+
+          <path d="M4 4h16v16H4z"></path>
+          <path d="M4 9h5l2 3h2l2-3h5"></path>
+
+        </svg>
+
+      </a>
+
+      <!-- Username -->
+      <a href="profile.html"
+         id="nav-username"
+         class="nav-username">
+      </a>
+
+      <!-- Logout -->
+      <button
+        type="button"
+        onclick="logout()"
+        class="btn btn-outline">
+        Logout
+      </button>
+
+    </div>
+
+  </div>
+</nav>
+
+<div class="container">
+
+  <div class="page-head">
+
+
+<div>
+  <h1 class="page-title">Discover</h1>
+
+  <p class="page-sub">
+    Find the best BuildNow.GG clips on ClipNow.
+  </p>
+</div>
+
+<a href="download.html"
+   class="btn btn-green">
+  Download Clipper
+</a>
+
+
+  </div>
+
+  <div class="discover-controls">
+
+
+<input
+  id="search"
+  class="discover-search"
+  type="search"
+  placeholder="Search clips..."
+  autocomplete="off"
+>
+
+<select id="sort"
+        class="sort-select">
+
+  <option value="latest">
+    Latest
+  </option>
+
+  <option value="views">
+    Most viewed
+  </option>
+
+  <option value="likes">
+    Most liked
+  </option>
+
+</select>
+
+
+  </div>
+
+  <div id="count"
+       class="discover-count">
+    Loading clips...
+  </div>
+
+  <div id="discover-grid"
+       class="clip-grid">
+
+
+<div class="discover-loading">
+  Loading clips...
+</div>
+
+
+  </div>
+
+</div>
+
+<script src="app.js"></script>
+
+<script>
+
+let allClips = [];
+
+function getSortFromUrl() {
+
+  const params = new URLSearchParams(window.location.search);
+
+  const sort = params.get("sort");
+
+  if (
+    sort === "views" ||
+    sort === "likes" ||
+    sort === "latest"
+  ) {
+    return sort;
+  }
+
+  return "latest";
+}
+
+
+function sortClips(clips, sort) {
+
+  const result = [...clips];
+
+  if (sort === "views") {
+
+    return result.sort(
+      (a, b) =>
+        (Number(b.views) || 0) -
+        (Number(a.views) || 0)
+    );
+
+  }
+
+  if (sort === "likes") {
+
+    return result.sort(
+      (a, b) =>
+        (Number(b.likes_count) || 0) -
+        (Number(a.likes_count) || 0)
+    );
+
+  }
+
+  return result.sort(
+    (a, b) =>
+      new Date(b.created_at || 0) -
+      new Date(a.created_at || 0)
+  );
+
+}
+
+
+function renderDiscover() {
+
+  const grid =
+    document.getElementById("discover-grid");
+
+  const count =
+    document.getElementById("count");
+
+  const search =
+    document.getElementById("search")
+      .value
+      .trim()
+      .toLowerCase();
+
+  const sort =
+    document.getElementById("sort").value;
+
+  let clips = allClips;
+
+  if (search) {
+
+    clips = clips.filter(c => {
+
+      const title =
+        String(c.title || "")
+          .toLowerCase();
+
+      const username =
+        String(
+          c.username ||
+          c.author_name ||
+          c.creator_name ||
+          ""
+        ).toLowerCase();
+
+      return (
+        title.includes(search) ||
+        username.includes(search)
+      );
+
+    });
+
+  }
+
+  clips = sortClips(clips, sort);
+
+  count.textContent =
+    `${clips.length} clip${clips.length === 1 ? "" : "s"}`;
+
+  if (!clips.length) {
+
+    grid.innerHTML = `
+      <div class="discover-empty">
+
+        <h2>No clips found</h2>
+
+        <p>
+          Try a different search or sort option.
+        </p>
+
+      </div>
+    `;
+
+    return;
+
+  }
+
+  grid.innerHTML =
+    clips.map(c => clipCardHtml(c)).join("");
+
+}
+
+
+async function loadDiscover() {
+
+  const grid =
+    document.getElementById("discover-grid");
+
+  try {
+
+    const {
+      data,
+      error
+    } = await getPublicClips({
+      limit: 100,
+      order: "created_at"
+    });
+
+    if (error) {
+
+      grid.innerHTML = `
+        <div class="discover-empty">
+
+          <h2>Couldn't load clips</h2>
+
+          <p>
+            ${escapeHtml(error.message)}
+          </p>
+
+        </div>
+      `;
+
+      document.getElementById("count")
+        .textContent = "Error loading clips";
+
+      return;
+
+    }
+
+    allClips = data || [];
+
+    document.getElementById("sort").value =
+      getSortFromUrl();
+
+    renderDiscover();
+
+  } catch (error) {
+
+    console.error(error);
+
+    grid.innerHTML = `
+      <div class="discover-empty">
+
+        <h2>Couldn't load clips</h2>
+
+        <p>
+          Something went wrong while loading ClipNow.
+        </p>
+
+      </div>
+    `;
+
+  }
+
+}
+
+
+document
+  .getElementById("search")
+  .addEventListener(
+    "input",
+    renderDiscover
+  );
+
+
+document
+  .getElementById("sort")
+  .addEventListener(
+    "change",
+    () => {
+
+      const value =
+        document.getElementById("sort").value;
+
+      const url =
+        new URL(window.location.href);
+
+      if (value === "latest") {
+        url.searchParams.delete("sort");
+      } else {
+        url.searchParams.set("sort", value);
+      }
+
+      window.history.replaceState(
+        {},
+        "",
+        url
+      );
+
+      renderDiscover();
+
+    }
+  );
+
+
+loadDiscover();
+
+</script>
+
+</body>
+</html>

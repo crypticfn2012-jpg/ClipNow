@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ClipNow</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+  <nav class="navbar">
+  <a href="index.html" class="logo">Clip<span>Now</span></a>
+
+  <div class="nav-center"></div>
+
+  <div class="nav-right">
+
+    <!-- Logged out -->
+    <a href="login.html"
+       id="nav-login"
+       class="btn btn-primary">
+      Sign in
+    </a>
+
+    <!-- Logged in -->
+    <div id="nav-user"
+         style="display:none; align-items:center; gap:12px;">
+
+      <!-- Inbox icon ONLY -->
+      <a href="inbox.html"
+         class="inbox-icon"
+         title="Inbox"
+         aria-label="Inbox">
+
+        <svg
+          width="20"
+          height="20"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.8"
+          stroke-linecap="round"
+          stroke-linejoin="round">
+
+          <path d="M4 4h16v16H4z"></path>
+          <path d="M4 9h5l2 3h2l2-3h5"></path>
+
+        </svg>
+
+      </a>
+
+      <!-- Username -->
+      <a href="profile.html"
+         id="nav-username"
+         class="nav-username">
+      </a>
+
+      <!-- Logout -->
+      <button
+        type="button"
+        onclick="logout()"
+        class="btn btn-outline">
+        Logout
+      </button>
+
+    </div>
+
+  </div>
+</nav>
+
+  <div class="container">
+    <div class="page-head">
+      <div>
+        <h1 class="page-title">Home</h1>
+        <p class="page-sub">Top BuildNow.GG clips, trending this week, and what’s new.</p>
+      </div>
+      <a href="download.html" class="btn btn-green">Download Clipper</a>
+    </div>
+
+    <div class="section-head">
+      <h2 class="section-title">Top 10 most viewed</h2>
+      <a href="discover.html?sort=views" class="muted-link">See all</a>
+    </div>
+    <div id="top-viewed" class="clip-grid"><p class="empty">Loading...</p></div>
+
+    <div class="section-head">
+      <h2 class="section-title">Popular this week</h2>
+    </div>
+    <div id="popular-week" class="clip-grid"><p class="empty">Loading...</p></div>
+
+    <div class="section-head">
+      <h2 class="section-title">Latest</h2>
+      <a href="discover.html" class="muted-link">Discover all clips</a>
+    </div>
+    <div id="latest" class="clip-grid"><p class="empty">Loading...</p></div>
+  </div>
+
+  <script src="app.js"></script>
+  <script>
+    function renderGrid(id, clips, emptyText) {
+      const el = document.getElementById(id);
+      if (!clips || !clips.length) {
+        el.innerHTML = `<p class="empty">${emptyText}</p>`;
+        return;
+      }
+      el.innerHTML = clips.map(c => clipCardHtml(c)).join("");
+    }
+
+    async function loadHome() {
+      const { data: recent, error } = await getPublicClips({ limit: 80, order: "created_at" });
+      if (error) {
+        renderGrid("top-viewed", [], escapeHtml(error.message));
+        renderGrid("popular-week", [], "");
+        renderGrid("latest", [], "");
+        return;
+      }
+
+      const top = [...recent].sort((a, b) => (b.views || 0) - (a.views || 0)).slice(0, 10);
+      const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+      const thisWeek = recent
+        .filter(c => {
+          const t = new Date(c.created_at || 0).getTime();
+          return t >= weekAgo;
+        })
+        .sort((a, b) => (b.views || 0) - (a.views || 0) || (b.likes_count || 0) - (a.likes_count || 0))
+        .slice(0, 10);
+
+      renderGrid("top-viewed", top, "No public clips yet.");
+      renderGrid("popular-week", thisWeek.length ? thisWeek : top.slice(0, 8), "Nothing new this week yet.");
+      renderGrid("latest", recent.slice(0, 12), "No public clips yet. Be the first to upload!");
+    }
+
+    loadHome();
+  </script>
+</body>
+</html>
