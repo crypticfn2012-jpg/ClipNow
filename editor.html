@@ -177,7 +177,108 @@ function length(c){return c.length}
 document.getElementById("del").onclick=()=>{if(S.selectedOverlay){checkpoint();S.overlays=S.overlays.filter(o=>o.id!==S.selectedOverlay);S.selectedOverlay=null}else if(S.selectedClip){checkpoint();S.clips=S.clips.filter(c=>c.id!==S.selectedClip);S.selectedClip=null;normalize()}render()};
 document.getElementById("play").onclick=async()=>{if(!duration())return;S.playing=true;const tick=async()=>{if(!S.playing)return;await seek(Math.min(duration(),S.time+1/30));if(S.time>=duration()){S.playing=false;return}requestAnimationFrame(tick)};tick()};
 document.getElementById("pause").onclick=()=>S.playing=false;document.getElementById("home").onclick=()=>seek(0);
-async function exportProject(){clearErr();if(!S.clips.length){showErr("Add a video first.");return}const mime=["video/webm;codecs=vp9,opus","video/webm;codecs=vp8,opus","video/webm"].find(x=>MediaRecorder.isTypeSupported(x));if(!mime){showErr("Browser export is not supported.");return}const btn=document.getElementById("export");btn.disabled=true;btn.textContent="Exporting...";try{const stream=cv.captureStream(30),rec=new MediaRecorder(stream,{mimeType:mime}),chunks=[];rec.ondataavailable=e=>e.data.size&&chunks.push(e.data);rec.start();for(let t=0;t<duration();t+=1/30){S.time=t;await seek(t);draw();await new Promise(r=>requestAnimationFrame(r))}rec.stop();await new Promise(r=>rec.onstop=r);stream.getTracks().forEach(t=>t.stop());const blob=new Blob(chunks,{type:mime});const user=await getCurrentUser();if(user){const p=await getProfile();const path=user.id+"/edited_"+Date.now()+".webm";const up=await client.storage.from("clips").upload(path,blob,{contentType:"video/webm",upsert:false});if(up.error)throw up.error;const title=document.getElementById("outTitle").value.trim()||"Edited Clip";const description=document.getElementById("outDesc").value.trim()||null;let ins=await client.from("clips").insert({user_id:user.id,title,description,file_path:path,file_size:blob.size,visibility:"public",views:0,likes_count:0,comments_count:0,published_at:new Date().toISOString()}).select("id").maybeSingle();if(ins.error&&/column|schema cache/i.test(ins.error.message||""))ins=await client.from("clips").insert({user_id:user.id,title,description,file_path:path,file_size:blob.size,visibility:"public",views:0}).select("id").maybeSingle();if(ins.error)throw ins.error;if(ins.data?.id){location.href="clip.html?id="+ins.data.id;return}}const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="clipnow-edit.webm";a.click()}catch(e){console.error(e);showErr(e.message||"Export failed")}finally{btn.disabled=false;btn.textContent="Export"}}
+async function exportProject(){
+  clearError();
+  if(!S.clips.length){showErr("Add a video first.");return}
+  const mime=["video/webm;codecs=vp9,opus","video/webm;codecs=vp8,opus","video/webm"].find(x=>MediaRecorder.isTypeSupported(x));
+  if(!mime){showErr("Browser export is not supported.");return}
+  const btn=document.getElementById("export");btn.disabled=true;btn.textContent="Exporting...";
+  const audioEls=[];
+  let audioCtx=null,dest=null;
+  try{
+    const stream=cv.captureStream(30);
+    audioCtx=new (window.AudioContext||window.webkitAudioContext)();
+    dest=audioCtx.createMediaStreamDestination();
+
+    for(const item of S.audios){
+      const a=document.createElement("audio");
+      a.src=item.url;
+      a.preload="auto";
+      const source=audioCtx.createMediaElementSource(a);
+      source.connect(dest);
+      audioEls.push({el:a,item});
+    }
+
+    const tracks=[...stream.getVideoTracks(),...dest.stream.getAudioTracks()];
+    const outStream=new MediaStream(tracks);
+    const rec=new MediaRecorder(outStream,{mimeType:mime});
+    const chunks=[];
+    rec.ondataavailable=e=>{if(e.data.size)chunks.push(e.data)};
+    rec.start();
+
+    for(let t=0;t<duration();t+=1/30){
+      S.time=t;
+      const c=active();
+      if(c){
+        if(S.video.src!==c.url)await loadVideo(c.url);
+        S.video.currentTime=Math.max(c.in,Math.min(c.out,c.in+(t-c.start)));
+      }
+
+      for(const item of audioEls){
+        const local=t-item.item.start;
+        if(local>=0&&local<=item.item.duration){
+          if(Math.abs(item.el.currentTime-local)>.12)item.el.currentTime=local;
+          if(audioCtx.state==="suspended")await audioCtx.resume();
+          item.el.play().catch(()=>{});
+        }else{
+          item.el.pause();
+        }
+      }
+
+      draw();
+      await new Promise(resolve=>requestAnimationFrame(resolve));
+    }
+
+    audioEls.forEach(x=>x.el.pause());
+    rec.stop();
+    await new Promise(resolve=>{rec.onstop=resolve});
+    outStream.getTracks().forEach(t=>t.stop());
+    if(audioCtx)await audioCtx.close();
+
+    const blob=new Blob(chunks,{type:mime});
+    const user=await getCurrentUser();
+
+    if(user){
+      const p=await getProfile();
+      const used=Number(p?.storage_used||0);
+      if(used+blob.size>MAX_STORAGE)throw new Error("5GB storage limit reached.");
+      const path=user.id+"/edited_"+Date.now()+".webm";
+      const up=await client.storage.from("clips").upload(path,blob,{contentType:"video/webm",upsert:false});
+      if(up.error)throw up.error;
+
+      const title=document.getElementById("outTitle").value.trim()||"Edited Clip";
+      const description=document.getElementById("outDesc").value.trim()||null;
+      let ins=await client.from("clips").insert({
+        user_id:user.id,title,description,file_path:path,file_size:blob.size,
+        visibility:"public",views:0,likes_count:0,comments_count:0,
+        published_at:new Date().toISOString()
+      }).select("id").maybeSingle();
+
+      if(ins.error&&/column|schema cache/i.test(ins.error.message||"")){
+        ins=await client.from("clips").insert({
+          user_id:user.id,title,description,file_path:path,file_size:blob.size,
+          visibility:"public",views:0
+        }).select("id").maybeSingle();
+      }
+
+      if(ins.error)throw ins.error;
+      await client.from("profiles").update({storage_used:used+blob.size}).eq("id",user.id);
+      if(ins.data?.id){location.href="clip.html?id="+ins.data.id;return}
+    }
+
+    const a=document.createElement("a");
+    a.href=URL.createObjectURL(blob);
+    a.download=(document.getElementById("outTitle").value.trim()||"edited-clip")+".webm";
+    a.click();
+  }catch(e){
+    console.error(e);
+    if(audioCtx){try{await audioCtx.close()}catch(_){}}
+    showErr(e.message||"Export failed");
+  }finally{
+    btn.disabled=false;
+    btn.textContent="Export";
+  }
+}
 document.getElementById("export").onclick=exportProject;
 async function init(){try{await addCurrent()}catch(e){showErr(e.message)}normalize();render();if(!new URLSearchParams(location.search).get("id"))seek(0)}
 init();
