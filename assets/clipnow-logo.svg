@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">ClipNow</title>
+  <desc id="desc">ClipNow logo</desc>
+  <rect width="512" height="512" fill="#fff"/>
+  <g transform="skewX(-6)">
+    <text x="37" y="300" fill="#202020" font-family="Impact, Haettenschweiler, 'Arial Narrow Bold', 'Arial Black', sans-serif" font-size="112" font-style="italic" font-weight="900" letter-spacing="-4" textLength="438" lengthAdjust="spacingAndGlyphs">CLIPNOW</text>
+    <text x="41" y="345" fill="#a9e7b9" font-family="Arial, Helvetica, sans-serif" font-size="23" font-weight="700" letter-spacing="-0.4" textLength="430" lengthAdjust="spacingAndGlyphs">Clip Your Buildnow GG clips in style</text>
+  </g>
+</svg>
