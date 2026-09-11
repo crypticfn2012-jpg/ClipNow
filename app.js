@@ -182,6 +182,8 @@ async function getClipPlaybackUrl(filePath) {
 
 function clipCardHtml(clip, username) {
   const name = username || clip.profiles?.username || "Unknown";
+  const rainbow = String(clip.title || "").startsWith("[[RAINBOW]]");
+  const cleanTitle = rainbow ? String(clip.title).replace(/^\\[\\[RAINBOW\\]\\]/, "").trim() : (clip.title || "Untitled");
   const vis = clip.visibility && clip.visibility !== "public" ? ` • ${clip.visibility}` : "";
 
   return `
@@ -190,7 +192,7 @@ function clipCardHtml(clip, username) {
         <span class="play-icon">▶</span>
       </div>
       <div class="clip-info">
-        <div class="clip-title">${escapeHtml(clip.title || "Untitled")}</div>
+        <div class="clip-title">${rainbow ? `<span class="rainbow-title">${escapeHtml(cleanTitle)}</span>` : escapeHtml(cleanTitle)}</div>
         <div class="clip-meta">
           ${escapeHtml(name)} • ${Number(clip.views) || 0} views${escapeHtml(vis)}
         </div>
@@ -290,11 +292,15 @@ function setActiveNav() {
 }
 
 async function applyNavbarUser(user) {
+  const existingDev = document.getElementById("nav-dev");
+  if (existingDev && !user) existingDev.remove();
   const loginBtn = document.getElementById("nav-login");
   const userArea = document.getElementById("nav-user");
   const usernameEl = document.getElementById("nav-username");
 
   if (!user) {
+    const existingDev = document.getElementById("nav-dev");
+    if (existingDev) existingDev.remove();
     if (loginBtn) loginBtn.style.setProperty("display", "inline-flex", "important");
     if (userArea) userArea.style.setProperty("display", "none", "important");
     return;
@@ -305,6 +311,15 @@ async function applyNavbarUser(user) {
 
   if (usernameEl) {
     const profile = await getProfileById(user.id);
+    const navRight = document.querySelector(".nav-right");
+    if (profile?.is_dev && navRight && !document.getElementById("nav-dev")) {
+      const devLink = document.createElement("a");
+      devLink.id = "nav-dev";
+      devLink.href = "dev.html";
+      devLink.className = "btn btn-outline dev-link";
+      devLink.textContent = "DEV";
+      navRight.insertBefore(devLink, userArea);
+    }
     if (profile?.is_dev) {
       usernameEl.innerHTML = "@" + escapeHtml(profile.username || "dev") + ' <span class="dev-badge">DEV</span>';
     } else {
