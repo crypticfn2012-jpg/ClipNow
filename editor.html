@@ -524,11 +524,20 @@ async function exportProject() {
     const destination = audioCtx.createMediaStreamDestination();
 
     // Capture video element audio when possible.
-    let videoSource = null;
     try {
-      videoSource = audioCtx.createMediaElementSource(state.localVideo);
+      const videoSource = audioCtx.createMediaElementSource(state.localVideo);
       videoSource.connect(destination);
     } catch (_) {}
+
+    const exportAudios = [];
+    for (const item of state.audios) {
+      const audio = new Audio();
+      audio.src = item.url;
+      audio.preload = "auto";
+      const source = audioCtx.createMediaElementSource(audio);
+      source.connect(destination);
+      exportAudios.push(audio);
+    }
 
     const recordStream = new MediaStream([
       ...stream.getVideoTracks(),
@@ -539,6 +548,7 @@ async function exportProject() {
     recorder.ondataavailable=e=>{if(e.data.size)chunks.push(e.data);};
 
     let elapsed=0;
+    exportAudios.forEach(a => a.play().catch(() => {}));
     for (let i=0;i<state.clips.length;i++) {
       await selectClip(i);
       const clip=state.clips[i];
@@ -557,6 +567,7 @@ async function exportProject() {
       state.localVideo.pause();
     }
 
+    exportAudios.forEach(a => { a.pause(); a.currentTime = 0; });
     recorder.stop();
     await new Promise(resolve=>recorder.onstop=resolve);
     recordStream.getTracks().forEach(t=>t.stop());
