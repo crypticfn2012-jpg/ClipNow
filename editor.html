@@ -1,0 +1,636 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Editor - ClipNow</title>
+<link rel="stylesheet" href="style.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  .editor-page{max-width:1180px;margin:0 auto;padding:24px}
+  .editor-head{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-bottom:18px;flex-wrap:wrap}
+  .editor-layout{display:grid;grid-template-columns:minmax(0,1.7fr) minmax(280px,.8fr);gap:18px}
+  .editor-panel{background:#151515;border:1px solid #252525;border-radius:14px;padding:16px}
+  .preview-wrap{background:#080808;border-radius:12px;padding:12px}
+  #preview{width:100%;aspect-ratio:16/9;background:#000;border-radius:8px;display:block}
+  .tool-row{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}
+  .tool-btn{background:#1d1d1d;border:1px solid #303030;color:#ddd;border-radius:9px;padding:8px 11px;cursor:pointer}
+  .tool-btn:hover{background:#262626}
+  .timeline{display:grid;gap:10px;margin-top:12px}
+  .timeline-item{background:#1b1b1b;border:1px solid #2a2a2a;border-radius:10px;padding:12px}
+  .timeline-top{display:flex;justify-content:space-between;gap:8px;align-items:center;margin-bottom:9px}
+  .timeline-name{font-weight:600}
+  .timeline-meta{font-size:12px;color:#777}
+  .timeline-controls{display:grid;grid-template-columns:1fr 1fr auto;gap:8px;align-items:end}
+  .field-label{font-size:12px;color:#888;display:block;margin-bottom:4px}
+  .field-input{width:100%;background:#101010;border:1px solid #333;color:#fff;border-radius:7px;padding:8px}
+  .asset-list{display:grid;gap:8px;margin-top:10px}
+  .asset{display:flex;align-items:center;justify-content:space-between;gap:8px;background:#1a1a1a;border:1px solid #292929;border-radius:9px;padding:9px 10px}
+  .asset small{color:#777}
+  .empty-box{padding:24px;text-align:center;color:#777;border:1px dashed #303030;border-radius:10px}
+  .editor-status{font-size:13px;color:#888;margin-top:10px;min-height:18px}
+  .progress{height:6px;background:#222;border-radius:99px;overflow:hidden;margin-top:8px}
+  .progress > div{height:100%;width:0;background:#22c55e}
+  .range{width:100%}
+  .overlay-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .sticker-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:6px}
+  .sticker{font-size:23px;background:#1b1b1b;border:1px solid #2b2b2b;border-radius:8px;padding:6px;cursor:pointer;text-align:center}
+  .small{font-size:12px;color:#777}
+  @media(max-width:900px){.editor-layout{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<nav class="navbar">
+  <a href="index.html" class="logo">Clip<span>Now</span></a>
+  <div class="nav-center">
+    <a href="index.html" id="nav-explore">Explore</a>
+    <a href="upload.html" id="nav-upload">Upload</a>
+    <a href="search.html" id="nav-search">Search</a>
+    <a href="profile.html" id="nav-profile">Profile</a>
+    <a href="download.html" id="nav-download">Download</a>
+  </div>
+  <div class="nav-right">
+    <a href="login.html" id="nav-login" class="btn btn-primary">Sign in</a>
+    <div id="nav-user" style="display:none;align-items:center;gap:12px">
+      <a href="inbox.html" class="inbox-icon" title="Inbox" aria-label="Inbox">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v16H4z"></path><path d="M4 9h5l2 3h2l2-3h5"></path></svg>
+      </a>
+      <a href="profile.html" id="nav-username" class="nav-username"></a>
+      <button type="button" onclick="logout()" class="btn btn-outline">Logout</button>
+    </div>
+  </div>
+</nav>
+
+<main class="editor-page">
+  <div class="editor-head">
+    <div>
+      <h1 class="page-title">ClipNow Editor</h1>
+      <p class="page-sub">Trim clips, combine multiple videos, add images, sound, stickers and text, then export a new clip.</p>
+    </div>
+    <button id="exportBtn" class="btn btn-green">Export edited clip</button>
+  </div>
+
+  <div id="error" class="error"></div>
+
+  <div class="editor-layout">
+    <section>
+      <div class="editor-panel">
+        <div class="preview-wrap"><canvas id="preview"></canvas></div>
+        <div class="tool-row">
+          <button class="tool-btn" id="playBtn">Play</button>
+          <button class="tool-btn" id="pauseBtn">Pause</button>
+          <button class="tool-btn" id="fitBtn">Fit</button>
+        </div>
+        <div class="editor-status" id="status">Preparing editor...</div>
+        <div class="progress"><div id="exportProgress"></div></div>
+      </div>
+
+      <div class="editor-panel" style="margin-top:18px">
+        <h2 class="section-title">Video timeline</h2>
+        <div class="tool-row">
+          <label class="tool-btn" style="display:inline-flex;align-items:center">
+            Add video clips
+            <input id="videoInput" type="file" accept="video/*" multiple hidden>
+          </label>
+          <button class="tool-btn" id="addCurrentBtn">Add current ClipNow clip</button>
+        </div>
+        <div id="timeline" class="timeline"></div>
+      </div>
+    </section>
+
+    <aside>
+      <div class="editor-panel">
+        <h2 class="section-title">Images</h2>
+        <label class="tool-btn" style="display:inline-flex;align-items:center">
+          Add images
+          <input id="imageInput" type="file" accept="image/*" multiple hidden>
+        </label>
+        <div id="images" class="asset-list"><div class="empty-box">No image overlays</div></div>
+      </div>
+
+      <div class="editor-panel" style="margin-top:14px">
+        <h2 class="section-title">Sound</h2>
+        <label class="tool-btn" style="display:inline-flex;align-items:center">
+          Add audio
+          <input id="audioInput" type="file" accept="audio/*" multiple hidden>
+        </label>
+        <div id="audioList" class="asset-list"><div class="empty-box">No extra audio</div></div>
+      </div>
+
+      <div class="editor-panel" style="margin-top:14px">
+        <h2 class="section-title">Text & stickers</h2>
+        <div class="form-group">
+          <label>Text overlay</label>
+          <input id="textOverlay" class="field-input" placeholder="Type something...">
+        </div>
+        <div class="overlay-grid">
+          <div><label class="field-label">X</label><input id="textX" class="field-input" type="number" min="0" max="100" value="50"></div>
+          <div><label class="field-label">Y</label><input id="textY" class="field-input" type="number" min="0" max="100" value="12"></div>
+        </div>
+        <p class="small" style="margin:8px 0">Coordinates are percentages of the video.</p>
+        <div class="sticker-grid" id="stickerGrid"></div>
+        <div id="stickers" class="asset-list"><div class="empty-box">No stickers</div></div>
+      </div>
+
+      <div class="editor-panel" style="margin-top:14px">
+        <h2 class="section-title">Export</h2>
+        <div class="form-group">
+          <label>New clip title</label>
+          <input id="exportTitle" class="field-input" value="Edited Clip">
+        </div>
+        <div class="form-group">
+          <label>Description</label>
+          <textarea id="exportDescription" class="field-input" style="min-height:70px"></textarea>
+        </div>
+        <p class="small">Export uses your browser's built-in MediaRecorder and creates a WebM file. Your original clips are not modified.</p>
+      </div>
+    </aside>
+  </div>
+</main>
+
+<script src="app.js"></script>
+<script>
+const state = {
+  clips: [],
+  images: [],
+  audios: [],
+  stickers: [],
+  text: { value: "", x: 50, y: 12 },
+  currentIndex: 0,
+  playing: false,
+  duration: 0,
+  localVideo: document.createElement("video"),
+  raf: 0
+};
+
+state.localVideo.muted = false;
+state.localVideo.playsInline = true;
+state.localVideo.crossOrigin = "anonymous";
+
+const canvas = document.getElementById("preview");
+const ctx = canvas.getContext("2d");
+const statusEl = document.getElementById("status");
+const timelineEl = document.getElementById("timeline");
+const errorEl = document.getElementById("error");
+
+function showError(msg) {
+  errorEl.textContent = msg;
+  errorEl.style.display = "block";
+}
+
+function clearError() {
+  errorEl.textContent = "";
+  errorEl.style.display = "none";
+}
+
+function formatTime(s) {
+  s = Number(s) || 0;
+  const m = Math.floor(s / 60);
+  const sec = Math.floor(s % 60).toString().padStart(2, "0");
+  return m + ":" + sec;
+}
+
+function makeLocalClip(file) {
+  return {
+    type: "video",
+    name: file.name,
+    file,
+    url: URL.createObjectURL(file),
+    trimStart: 0,
+    trimEnd: null
+  };
+}
+
+function addVideoFile(file) {
+  if (!file || !file.type.startsWith("video/")) return;
+  state.clips.push(makeLocalClip(file));
+  renderTimeline();
+  if (state.clips.length === 1) selectClip(0);
+}
+
+async function addCurrentClip() {
+  clearError();
+  const id = new URLSearchParams(location.search).get("id");
+  if (!id) {
+    showError("Open the editor from a ClipNow clip or add a local video first.");
+    return;
+  }
+  try {
+    const result = await getClipById(id);
+    if (!result.data) throw new Error(result.error?.message || "Clip not found.");
+    const url = await getClipPlaybackUrl(result.data.file_path);
+    if (!url) throw new Error("Could not create a playback URL.");
+    state.clips.push({
+      type: "video",
+      name: result.data.title || "ClipNow clip",
+      url,
+      remote: true,
+      trimStart: 0,
+      trimEnd: null
+    });
+    renderTimeline();
+    if (state.clips.length === 1) selectClip(0);
+    statusEl.textContent = "Clip added: " + (result.data.title || "Clip");
+  } catch (e) {
+    showError(e.message || "Could not add current clip.");
+  }
+}
+
+function renderTimeline() {
+  if (!state.clips.length) {
+    timelineEl.innerHTML = '<div class="empty-box">Add one or more videos to start editing.</div>';
+    return;
+  }
+  timelineEl.innerHTML = state.clips.map((c, i) => {
+    const trimEnd = c.trimEnd == null ? "—" : formatTime(c.trimEnd);
+    return `
+      <div class="timeline-item">
+        <div class="timeline-top">
+          <div>
+            <div class="timeline-name">${escapeHtml(c.name)}</div>
+            <div class="timeline-meta">Clip ${i + 1} • In ${formatTime(c.trimStart)} • Out ${trimEnd}</div>
+          </div>
+          <div class="tool-row" style="margin:0">
+            <button class="tool-btn" data-act="select" data-i="${i}">Preview</button>
+            <button class="tool-btn" data-act="up" data-i="${i}">↑</button>
+            <button class="tool-btn" data-act="down" data-i="${i}">↓</button>
+            <button class="tool-btn" data-act="remove" data-i="${i}">Remove</button>
+          </div>
+        </div>
+        <div class="timeline-controls">
+          <div>
+            <label class="field-label">Start (seconds)</label>
+            <input class="field-input" data-trim="start" data-i="${i}" type="number" min="0" step="0.1" value="${c.trimStart}">
+          </div>
+          <div>
+            <label class="field-label">End (seconds)</label>
+            <input class="field-input" data-trim="end" data-i="${i}" type="number" min="0" step="0.1" value="${c.trimEnd == null ? "" : c.trimEnd}">
+          </div>
+          <button class="tool-btn" data-act="reset" data-i="${i}">Reset trim</button>
+        </div>
+      </div>`;
+  }).join("");
+}
+
+timelineEl.addEventListener("click", async e => {
+  const b = e.target.closest("button[data-act]");
+  if (!b) return;
+  const i = Number(b.dataset.i);
+  const act = b.dataset.act;
+  if (act === "select") await selectClip(i);
+  if (act === "remove") {
+    if (state.clips[i]?.url?.startsWith("blob:")) URL.revokeObjectURL(state.clips[i].url);
+    state.clips.splice(i, 1);
+    state.currentIndex = Math.min(state.currentIndex, Math.max(0, state.clips.length - 1));
+    renderTimeline();
+    if (state.clips.length) await selectClip(state.currentIndex);
+  }
+  if (act === "up" && i > 0) {
+    [state.clips[i - 1], state.clips[i]] = [state.clips[i], state.clips[i - 1]];
+    state.currentIndex = i - 1;
+    renderTimeline();
+  }
+  if (act === "down" && i < state.clips.length - 1) {
+    [state.clips[i + 1], state.clips[i]] = [state.clips[i], state.clips[i + 1]];
+    state.currentIndex = i + 1;
+    renderTimeline();
+  }
+  if (act === "reset") {
+    state.clips[i].trimStart = 0;
+    state.clips[i].trimEnd = null;
+    renderTimeline();
+  }
+});
+
+timelineEl.addEventListener("change", e => {
+  const input = e.target.closest("[data-trim]");
+  if (!input) return;
+  const i = Number(input.dataset.i);
+  const v = input.value === "" ? null : Math.max(0, Number(input.value));
+  if (input.dataset.trim === "start") state.clips[i].trimStart = v || 0;
+  else state.clips[i].trimEnd = v;
+  if (state.clips[i].trimEnd != null && state.clips[i].trimEnd <= state.clips[i].trimStart) {
+    state.clips[i].trimEnd = null;
+  }
+  renderTimeline();
+});
+
+async function selectClip(i) {
+  const clip = state.clips[i];
+  if (!clip) return;
+  state.currentIndex = i;
+  state.localVideo.src = clip.url;
+  state.localVideo.currentTime = clip.trimStart || 0;
+  await new Promise((resolve, reject) => {
+    const ok = () => { cleanup(); resolve(); };
+    const bad = () => { cleanup(); reject(new Error("Video could not be loaded. If this is a remote clip, storage CORS must allow browser playback.")); };
+    const cleanup = () => {
+      state.localVideo.removeEventListener("loadedmetadata", ok);
+      state.localVideo.removeEventListener("error", bad);
+    };
+    state.localVideo.addEventListener("loadedmetadata", ok);
+    state.localVideo.addEventListener("error", bad);
+    state.localVideo.load();
+  });
+  const end = clip.trimEnd == null ? state.localVideo.duration : Math.min(clip.trimEnd, state.localVideo.duration);
+  clip.trimEnd = clip.trimEnd == null ? null : end;
+  renderTimeline();
+  resizeCanvas();
+  drawFrame();
+  statusEl.textContent = clip.name + " • " + formatTime(state.localVideo.duration);
+}
+
+function resizeCanvas() {
+  const rect = canvas.getBoundingClientRect();
+  if (!rect.width) return;
+  canvas.width = 1280;
+  canvas.height = 720;
+}
+
+function drawFrame(timeOverride) {
+  resizeCanvas();
+  ctx.fillStyle = "#000";
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+  if (state.localVideo.readyState >= 2) {
+    const vw = state.localVideo.videoWidth || 1280;
+    const vh = state.localVideo.videoHeight || 720;
+    const scale = Math.min(canvas.width / vw, canvas.height / vh);
+    const w = vw * scale;
+    const h = vh * scale;
+    ctx.drawImage(state.localVideo, (canvas.width-w)/2, (canvas.height-h)/2, w, h);
+  }
+  // Image overlays
+  state.images.forEach(img => {
+    if (!img.image.complete) return;
+    const w = img.width;
+    const h = img.height;
+    ctx.globalAlpha = img.opacity;
+    ctx.drawImage(img.image, img.x - w/2, img.y - h/2, w, h);
+    ctx.globalAlpha = 1;
+  });
+  // Stickers
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  state.stickers.forEach(s => {
+    ctx.font = `${s.size}px sans-serif`;
+    ctx.fillText(s.value, s.x, s.y);
+  });
+  // Text
+  if (state.text.value) {
+    ctx.font = "700 54px Arial";
+    ctx.textAlign = "center";
+    ctx.fillStyle = "#fff";
+    ctx.strokeStyle = "rgba(0,0,0,.7)";
+    ctx.lineWidth = 7;
+    const x = canvas.width * state.text.x / 100;
+    const y = canvas.height * state.text.y / 100;
+    ctx.strokeText(state.text.value, x, y);
+    ctx.fillText(state.text.value, x, y);
+  }
+}
+
+function stopPlayback() {
+  state.playing = false;
+  state.localVideo.pause();
+  cancelAnimationFrame(state.raf);
+}
+
+async function playEditor() {
+  if (!state.clips.length) return;
+  state.playing = true;
+  const clip = state.clips[state.currentIndex];
+  const start = clip.trimStart || 0;
+  const end = clip.trimEnd == null ? state.localVideo.duration : Math.min(clip.trimEnd, state.localVideo.duration);
+  if (state.localVideo.currentTime < start || state.localVideo.currentTime >= end) state.localVideo.currentTime = start;
+  try { await state.localVideo.play(); } catch (e) {}
+  const tick = () => {
+    if (!state.playing) return;
+    drawFrame();
+    const currentEnd = clip.trimEnd == null ? state.localVideo.duration : Math.min(clip.trimEnd, state.localVideo.duration);
+    if (state.localVideo.currentTime >= currentEnd - 0.03) {
+      state.localVideo.pause();
+      if (state.currentIndex < state.clips.length - 1) {
+        selectClip(state.currentIndex + 1).then(playEditor);
+      } else {
+        stopPlayback();
+      }
+      return;
+    }
+    state.raf = requestAnimationFrame(tick);
+  };
+  tick();
+}
+
+document.getElementById("playBtn").onclick = playEditor;
+document.getElementById("pauseBtn").onclick = stopPlayback;
+document.getElementById("fitBtn").onclick = drawFrame;
+
+document.getElementById("videoInput").onchange = e => [...e.target.files].forEach(addVideoFile);
+document.getElementById("addCurrentBtn").onclick = addCurrentClip;
+
+document.getElementById("imageInput").onchange = e => {
+  [...e.target.files].forEach(file => {
+    const image = new Image();
+    image.onload = drawFrame;
+    image.src = URL.createObjectURL(file);
+    state.images.push({ name:file.name, image, x:640, y:360, width:300, height:200, opacity:1 });
+  });
+  renderImages();
+  drawFrame();
+};
+
+function renderImages() {
+  const box = document.getElementById("images");
+  if (!state.images.length) { box.innerHTML = '<div class="empty-box">No image overlays</div>'; return; }
+  box.innerHTML = state.images.map((im,i) => `
+    <div class="asset"><div><b>${escapeHtml(im.name)}</b><br><small>Overlay image</small></div><button class="tool-btn" data-remove-image="${i}">Remove</button></div>`).join("");
+}
+
+document.getElementById("images").addEventListener("click", e => {
+  const b=e.target.closest("[data-remove-image]"); if(!b)return;
+  state.images.splice(Number(b.dataset.removeImage),1); renderImages(); drawFrame();
+});
+
+document.getElementById("audioInput").onchange = e => {
+  [...e.target.files].forEach(file => state.audios.push({name:file.name,file,url:URL.createObjectURL(file)}));
+  renderAudio();
+};
+
+function renderAudio() {
+  const box=document.getElementById("audioList");
+  if(!state.audios.length){box.innerHTML='<div class="empty-box">No extra audio</div>';return;}
+  box.innerHTML=state.audios.map((a,i)=>`
+    <div class="asset"><div><b>${escapeHtml(a.name)}</b><br><small>Extra audio track</small></div><button class="tool-btn" data-remove-audio="${i}">Remove</button></div>`).join("");
+}
+
+document.getElementById("audioList").addEventListener("click", e=>{
+  const b=e.target.closest("[data-remove-audio]"); if(!b)return;
+  state.audios.splice(Number(b.dataset.removeAudio),1); renderAudio();
+});
+
+document.getElementById("textOverlay").oninput = e => { state.text.value=e.target.value; drawFrame(); };
+document.getElementById("textX").oninput = e => { state.text.x=Math.max(0,Math.min(100,Number(e.target.value)||0)); drawFrame(); };
+document.getElementById("textY").oninput = e => { state.text.y=Math.max(0,Math.min(100,Number(e.target.value)||0)); drawFrame(); };
+
+const stickerValues = ["🔥","💯","GG","LOL","W","EZ","CLUTCH","1HP","NO WAY","WOW","AIM","CLIP"];
+document.getElementById("stickerGrid").innerHTML = stickerValues.map(v=>`<button class="sticker" type="button" data-sticker="${v}">${v}</button>`).join("");
+document.getElementById("stickerGrid").addEventListener("click",e=>{
+  const b=e.target.closest("[data-sticker]");if(!b)return;
+  state.stickers.push({value:b.dataset.sticker,x:640,y:140,size:54});
+  renderStickers();drawFrame();
+});
+function renderStickers(){
+  const box=document.getElementById("stickers");
+  if(!state.stickers.length){box.innerHTML='<div class="empty-box">No stickers</div>';return;}
+  box.innerHTML=state.stickers.map((s,i)=>`
+    <div class="asset"><div><b>${escapeHtml(s.value)}</b><br><small>Sticker at 50%, 19%</small></div><button class="tool-btn" data-remove-sticker="${i}">Remove</button></div>`).join("");
+}
+document.getElementById("stickers").addEventListener("click",e=>{
+  const b=e.target.closest("[data-remove-sticker]");if(!b)return;
+  state.stickers.splice(Number(b.dataset.removeSticker),1);renderStickers();drawFrame();
+});
+
+function waitForMetadata(video) {
+  if (video.readyState >= 1) return Promise.resolve();
+  return new Promise((resolve,reject)=>{
+    const on=()=>{cleanup();resolve();};
+    const err=()=>{cleanup();reject(new Error("Could not read video metadata."));};
+    const cleanup=()=>{video.removeEventListener("loadedmetadata",on);video.removeEventListener("error",err);};
+    video.addEventListener("loadedmetadata",on);video.addEventListener("error",err);
+  });
+}
+
+function getSupportedMime() {
+  const types=["video/webm;codecs=vp9,opus","video/webm;codecs=vp8,opus","video/webm"];
+  return types.find(t=>MediaRecorder.isTypeSupported(t)) || "";
+}
+
+async function exportProject() {
+  clearError();
+  if (!state.clips.length) { showError("Add at least one video clip."); return; }
+  const mime = getSupportedMime();
+  if (!mime) { showError("This browser does not support WebM recording."); return; }
+
+  const user = await getCurrentUser();
+  const exportBtn = document.getElementById("exportBtn");
+  exportBtn.disabled = true;
+  exportBtn.textContent = "Exporting...";
+  document.getElementById("exportProgress").style.width = "2%";
+
+  try {
+    stopPlayback();
+    const stream = canvas.captureStream(30);
+    const audioCtx = new AudioContext();
+    const destination = audioCtx.createMediaStreamDestination();
+
+    // Capture video element audio when possible.
+    let videoSource = null;
+    try {
+      videoSource = audioCtx.createMediaElementSource(state.localVideo);
+      videoSource.connect(destination);
+    } catch (_) {}
+
+    const recordStream = new MediaStream([
+      ...stream.getVideoTracks(),
+      ...destination.stream.getAudioTracks()
+    ]);
+    const chunks=[];
+    const recorder=new MediaRecorder(recordStream,{mimeType:mime});
+    recorder.ondataavailable=e=>{if(e.data.size)chunks.push(e.data);};
+
+    let elapsed=0;
+    for (let i=0;i<state.clips.length;i++) {
+      await selectClip(i);
+      const clip=state.clips[i];
+      const end=clip.trimEnd==null?state.localVideo.duration:Math.min(clip.trimEnd,state.localVideo.duration);
+      state.localVideo.currentTime=clip.trimStart||0;
+      await waitForMetadata(state.localVideo);
+      state.localVideo.currentTime=clip.trimStart||0;
+      await new Promise(r=>{const f=()=>{state.localVideo.removeEventListener("seeked",f);r();};state.localVideo.addEventListener("seeked",f);});
+      await state.localVideo.play();
+      while (state.localVideo.currentTime < end - 0.03) {
+        drawFrame();
+        await new Promise(r=>requestAnimationFrame(r));
+        elapsed += 1/30;
+        document.getElementById("exportProgress").style.width=Math.min(95, (elapsed/Math.max(1,getTotalDuration()))*95)+"%";
+      }
+      state.localVideo.pause();
+    }
+
+    recorder.stop();
+    await new Promise(resolve=>recorder.onstop=resolve);
+    recordStream.getTracks().forEach(t=>t.stop());
+    destination.stream.getTracks().forEach(t=>t.stop());
+    await audioCtx.close();
+
+    const blob=new Blob(chunks,{type:mime});
+    document.getElementById("exportProgress").style.width="100%";
+    statusEl.textContent="Export complete: "+formatBytes(blob.size);
+
+    if (user) {
+      const profile=await getProfile();
+      const used=Number(profile?.storage_used||0);
+      if (used+blob.size > MAX_STORAGE) throw new Error("5GB storage limit reached.");
+      const path=user.id+"/edited_"+Date.now()+".webm";
+      const up=await client.storage.from("clips").upload(path,blob,{contentType:"video/webm",upsert:false});
+      if (up.error) throw up.error;
+      const title=document.getElementById("exportTitle").value.trim()||"Edited Clip";
+      const description=document.getElementById("exportDescription").value.trim()||null;
+      let inserted=await client.from("clips").insert({
+        user_id:user.id,title,description,file_path:path,file_size:blob.size,
+        visibility:"public",views:0,likes_count:0,comments_count:0,
+        published_at:new Date().toISOString()
+      }).select("id").maybeSingle();
+      if (inserted.error && /column|schema cache/i.test(inserted.error.message||"")) {
+        inserted=await client.from("clips").insert({
+          user_id:user.id,title,description,file_path:path,file_size:blob.size,
+          visibility:"public",views:0
+        }).select("id").maybeSingle();
+      }
+      if (inserted.error) throw inserted.error;
+      await client.from("profiles").update({storage_used:used+blob.size}).eq("id",user.id);
+      if (inserted.data?.id) {
+        window.location.href="clip.html?id="+inserted.data.id;
+        return;
+      }
+    }
+
+    const a=document.createElement("a");
+    a.href=URL.createObjectURL(blob);
+    a.download=(document.getElementById("exportTitle").value.trim()||"edited-clip")+".webm";
+    a.click();
+  } catch(e) {
+    console.error(e);
+    showError(e.message||"Export failed.");
+    statusEl.textContent="Export failed.";
+  } finally {
+    exportBtn.disabled=false;
+    exportBtn.textContent="Export edited clip";
+  }
+}
+
+function getTotalDuration(){
+  return state.clips.reduce((sum,c)=>{
+    if(c.trimEnd!=null) return sum+Math.max(0,c.trimEnd-(c.trimStart||0));
+    return sum+5;
+  },0);
+}
+
+document.getElementById("exportBtn").onclick=exportProject;
+
+async function loadRequestedClip(){
+  renderTimeline();
+  renderImages();
+  renderAudio();
+  renderStickers();
+  const id=new URLSearchParams(location.search).get("id");
+  if(id) await addCurrentClip();
+  else {
+    statusEl.textContent="Add a video clip to begin.";
+    resizeCanvas(); drawFrame();
+  }
+}
+loadRequestedClip();
+</script>
+</body>
+</html>
