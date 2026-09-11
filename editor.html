@@ -1,647 +1,90 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Editor - ClipNow</title>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ClipNow Editor</title>
 <link rel="stylesheet" href="style.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
-  .editor-page{max-width:1180px;margin:0 auto;padding:24px}
-  .editor-head{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-bottom:18px;flex-wrap:wrap}
-  .editor-layout{display:grid;grid-template-columns:minmax(0,1.7fr) minmax(280px,.8fr);gap:18px}
-  .editor-panel{background:#151515;border:1px solid #252525;border-radius:14px;padding:16px}
-  .preview-wrap{background:#080808;border-radius:12px;padding:12px}
-  #preview{width:100%;aspect-ratio:16/9;background:#000;border-radius:8px;display:block}
-  .tool-row{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}
-  .tool-btn{background:#1d1d1d;border:1px solid #303030;color:#ddd;border-radius:9px;padding:8px 11px;cursor:pointer}
-  .tool-btn:hover{background:#262626}
-  .timeline{display:grid;gap:10px;margin-top:12px}
-  .timeline-item{background:#1b1b1b;border:1px solid #2a2a2a;border-radius:10px;padding:12px}
-  .timeline-top{display:flex;justify-content:space-between;gap:8px;align-items:center;margin-bottom:9px}
-  .timeline-name{font-weight:600}
-  .timeline-meta{font-size:12px;color:#777}
-  .timeline-controls{display:grid;grid-template-columns:1fr 1fr auto;gap:8px;align-items:end}
-  .field-label{font-size:12px;color:#888;display:block;margin-bottom:4px}
-  .field-input{width:100%;background:#101010;border:1px solid #333;color:#fff;border-radius:7px;padding:8px}
-  .asset-list{display:grid;gap:8px;margin-top:10px}
-  .asset{display:flex;align-items:center;justify-content:space-between;gap:8px;background:#1a1a1a;border:1px solid #292929;border-radius:9px;padding:9px 10px}
-  .asset small{color:#777}
-  .empty-box{padding:24px;text-align:center;color:#777;border:1px dashed #303030;border-radius:10px}
-  .editor-status{font-size:13px;color:#888;margin-top:10px;min-height:18px}
-  .progress{height:6px;background:#222;border-radius:99px;overflow:hidden;margin-top:8px}
-  .progress > div{height:100%;width:0;background:#22c55e}
-  .range{width:100%}
-  .overlay-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-  .sticker-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:6px}
-  .sticker{font-size:23px;background:#1b1b1b;border:1px solid #2b2b2b;border-radius:8px;padding:6px;cursor:pointer;text-align:center}
-  .small{font-size:12px;color:#777}
-  @media(max-width:900px){.editor-layout{grid-template-columns:1fr}}
+.ed{max-width:1450px;margin:0 auto;padding:16px}.ed-top{display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:12px}.ed-tools{display:flex;gap:7px;flex-wrap:wrap}.ed-btn{background:#191919;color:#ddd;border:1px solid #303030;border-radius:8px;padding:8px 11px;cursor:pointer}.ed-btn:hover{background:#242424}.ed-btn.green{background:#15803d;border-color:#22c55e;color:#fff}.ed-grid{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:12px}.ed-card{background:#141414;border:1px solid #292929;border-radius:12px;padding:12px}.stage{background:#080808;border-radius:9px;overflow:hidden}.stage canvas{width:100%;aspect-ratio:16/9;display:block;background:#000;touch-action:none}.stage-bar{display:flex;justify-content:space-between;align-items:center;padding:8px 2px;color:#888;font-size:12px}.timeline-card{margin-top:12px}.timeline-scroll{overflow:auto}.tl{position:relative;min-width:1000px;height:205px;background:#0b0b0b;border:1px solid #242424;border-radius:8px}.tl-ruler{position:absolute;left:0;right:0;top:0;height:25px;border-bottom:1px solid #222;background:repeating-linear-gradient(to right,transparent 0,transparent 49px,#222 50px)}.tl-ruler span{position:absolute;top:4px;font-size:10px;color:#666}.tl-lane{position:absolute;left:0;right:0;border-top:1px solid #191919}.tl-lane.video{top:25px;height:72px}.tl-lane.overlay{top:97px;height:52px}.tl-lane.audio{top:149px;height:55px}.tl-label{position:absolute;left:6px;font-size:9px;color:#666;z-index:3}.tl-block{position:absolute;border-radius:7px;color:#fff;font-size:10px;overflow:hidden;cursor:grab;user-select:none}.tl-video{top:38px;height:48px;background:#17643d;border:1px solid #2b9a63}.tl-overlay{top:108px;height:26px;background:#334155;border:1px solid #64748b;padding:5px}.tl-audio{top:159px;height:28px;background:#3f3b78;border:1px solid #7066d6;padding:5px}.tl-block.selected{outline:2px solid #fff}.trim-edge{position:absolute;top:0;bottom:0;width:7px;background:rgba(255,255,255,.18);cursor:ew-resize}.trim-l{left:0}.trim-r{right:0}.ph{position:absolute;top:0;bottom:0;width:2px;background:#ef4444;z-index:10;cursor:ew-resize}.ph:before{content:"";position:absolute;top:0;left:-5px;border-left:6px solid transparent;border-right:6px solid transparent;border-top:8px solid #ef4444}.ins{max-height:calc(100vh - 95px);overflow:auto}.field{margin-bottom:9px}.field label{display:block;color:#888;font-size:11px;margin-bottom:4px}.field input,.field select,.field textarea{width:100%;box-sizing:border-box;background:#0e0e0e;border:1px solid #333;color:#fff;border-radius:7px;padding:8px}.two{display:grid;grid-template-columns:1fr 1fr;gap:7px}.asset-list{display:grid;gap:6px}.asset{background:#191919;border:1px solid #2a2a2a;border-radius:8px;padding:7px;display:flex;justify-content:space-between;gap:7px;align-items:center}.asset small{color:#777}.keys{display:grid;gap:5px}.key{background:#191919;border-radius:7px;padding:7px;font-size:11px;display:flex;justify-content:space-between}.sel-box{font-size:11px;color:#888;min-height:16px}.hint{font-size:11px;line-height:1.4;color:#707070}.sticker-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:4px}.sticker-grid button{background:#191919;border:1px solid #303030;border-radius:7px;padding:6px;cursor:pointer}.resize-corner{position:fixed;width:12px;height:12px;background:#fff;border:2px solid #111;display:none;z-index:10000;cursor:nwse-resize}.overlay-box{position:fixed;border:1px dashed rgba(255,255,255,.8);display:none;pointer-events:none;z-index:9999}.dev-link{margin-left:6px}.rainbow-title{background:linear-gradient(90deg,#ff4d4d,#ffd93d,#4ade80,#38bdf8,#a78bfa,#f472b6,#ff4d4d);background-size:300% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;animation:rainbowShift 3s linear infinite}@keyframes rainbowShift{to{background-position:300% 0}}@media(max-width:1000px){.ed-grid{grid-template-columns:1fr}.ins{max-height:none}}
 </style>
 </head>
 <body>
-<nav class="navbar">
-  <a href="index.html" class="logo">Clip<span>Now</span></a>
-  <div class="nav-center">
-    <a href="index.html" id="nav-explore">Explore</a>
-    <a href="upload.html" id="nav-upload">Upload</a>
-    <a href="search.html" id="nav-search">Search</a>
-    <a href="profile.html" id="nav-profile">Profile</a>
-    <a href="download.html" id="nav-download">Download</a>
-  </div>
-  <div class="nav-right">
-    <a href="login.html" id="nav-login" class="btn btn-primary">Sign in</a>
-    <div id="nav-user" style="display:none;align-items:center;gap:12px">
-      <a href="inbox.html" class="inbox-icon" title="Inbox" aria-label="Inbox">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v16H4z"></path><path d="M4 9h5l2 3h2l2-3h5"></path></svg>
-      </a>
-      <a href="profile.html" id="nav-username" class="nav-username"></a>
-      <button type="button" onclick="logout()" class="btn btn-outline">Logout</button>
-    </div>
-  </div>
-</nav>
-
-<main class="editor-page">
-  <div class="editor-head">
-    <div>
-      <h1 class="page-title">ClipNow Editor</h1>
-      <p class="page-sub">Trim clips, combine multiple videos, add images, sound, stickers and text, then export a new clip.</p>
-    </div>
-    <button id="exportBtn" class="btn btn-green">Export edited clip</button>
-  </div>
-
-  <div id="error" class="error"></div>
-
-  <div class="editor-layout">
-    <section>
-      <div class="editor-panel">
-        <div class="preview-wrap"><canvas id="preview"></canvas></div>
-        <div class="tool-row">
-          <button class="tool-btn" id="playBtn">Play</button>
-          <button class="tool-btn" id="pauseBtn">Pause</button>
-          <button class="tool-btn" id="fitBtn">Fit</button>
-        </div>
-        <div class="editor-status" id="status">Preparing editor...</div>
-        <div class="progress"><div id="exportProgress"></div></div>
-      </div>
-
-      <div class="editor-panel" style="margin-top:18px">
-        <h2 class="section-title">Video timeline</h2>
-        <div class="tool-row">
-          <label class="tool-btn" style="display:inline-flex;align-items:center">
-            Add video clips
-            <input id="videoInput" type="file" accept="video/*" multiple hidden>
-          </label>
-          <button class="tool-btn" id="addCurrentBtn">Add current ClipNow clip</button>
-        </div>
-        <div id="timeline" class="timeline"></div>
-      </div>
-    </section>
-
-    <aside>
-      <div class="editor-panel">
-        <h2 class="section-title">Images</h2>
-        <label class="tool-btn" style="display:inline-flex;align-items:center">
-          Add images
-          <input id="imageInput" type="file" accept="image/*" multiple hidden>
-        </label>
-        <div id="images" class="asset-list"><div class="empty-box">No image overlays</div></div>
-      </div>
-
-      <div class="editor-panel" style="margin-top:14px">
-        <h2 class="section-title">Sound</h2>
-        <label class="tool-btn" style="display:inline-flex;align-items:center">
-          Add audio
-          <input id="audioInput" type="file" accept="audio/*" multiple hidden>
-        </label>
-        <div id="audioList" class="asset-list"><div class="empty-box">No extra audio</div></div>
-      </div>
-
-      <div class="editor-panel" style="margin-top:14px">
-        <h2 class="section-title">Text & stickers</h2>
-        <div class="form-group">
-          <label>Text overlay</label>
-          <input id="textOverlay" class="field-input" placeholder="Type something...">
-        </div>
-        <div class="overlay-grid">
-          <div><label class="field-label">X</label><input id="textX" class="field-input" type="number" min="0" max="100" value="50"></div>
-          <div><label class="field-label">Y</label><input id="textY" class="field-input" type="number" min="0" max="100" value="12"></div>
-        </div>
-        <p class="small" style="margin:8px 0">Coordinates are percentages of the video.</p>
-        <div class="sticker-grid" id="stickerGrid"></div>
-        <div id="stickers" class="asset-list"><div class="empty-box">No stickers</div></div>
-      </div>
-
-      <div class="editor-panel" style="margin-top:14px">
-        <h2 class="section-title">Export</h2>
-        <div class="form-group">
-          <label>New clip title</label>
-          <input id="exportTitle" class="field-input" value="Edited Clip">
-        </div>
-        <div class="form-group">
-          <label>Description</label>
-          <textarea id="exportDescription" class="field-input" style="min-height:70px"></textarea>
-        </div>
-        <p class="small">Export uses your browser's built-in MediaRecorder and creates a WebM file. Your original clips are not modified.</p>
-      </div>
-    </aside>
-  </div>
-</main>
+<nav class="navbar"><a href="index.html" class="logo">Clip<span>Now</span></a><div class="nav-center"><a href="index.html" id="nav-explore">Explore</a><a href="upload.html" id="nav-upload">Upload</a><a href="search.html" id="nav-search">Search</a><a href="profile.html" id="nav-profile">Profile</a><a href="download.html" id="nav-download">Download</a></div><div class="nav-right"><a href="login.html" id="nav-login" class="btn btn-primary">Sign in</a><div id="nav-user" style="display:none;align-items:center;gap:12px"><a href="inbox.html" class="inbox-icon" title="Inbox"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 4h16v16H4z"></path><path d="M4 9h5l2 3h2l2-3h5"></path></svg></a><a href="profile.html" id="nav-username" class="nav-username"></a><button class="btn btn-outline" onclick="logout()">Logout</button></div></div></nav>
+<main class="ed">
+<div class="ed-top"><div><h1 class="page-title">ClipNow Editor</h1><p class="page-sub">Timeline editor with cuts, trims, transitions, overlays and keyframes.</p></div><div class="ed-tools"><label class="ed-btn">Add videos<input id="videos" type="file" accept="video/*" multiple hidden></label><label class="ed-btn">Add images<input id="images" type="file" accept="image/*" multiple hidden></label><label class="ed-btn">Add sound<input id="sounds" type="file" accept="audio/*" multiple hidden></label><button class="ed-btn" id="cut">Cut</button><button class="ed-btn" id="del">Delete</button><button class="ed-btn" id="undo">Undo</button><button class="ed-btn" id="redo">Redo</button><button class="ed-btn green" id="export">Export</button></div></div>
+<div id="err" class="error"></div>
+<div class="ed-grid">
+<section>
+<div class="ed-card"><div class="stage"><canvas id="cv" width="1280" height="720"></canvas></div><div class="stage-bar"><span id="clock">0:00 / 0:00</span><span id="sel">Nothing selected</span></div><div class="ed-tools"><button class="ed-btn" id="play">Play</button><button class="ed-btn" id="pause">Pause</button><button class="ed-btn" id="home">Start</button></div></div>
+<div class="ed-card timeline-card"><div style="display:flex;justify-content:space-between;gap:8px;align-items:center;margin-bottom:8px"><strong style="font-size:13px">Timeline</strong><span class="hint">Drag blocks • drag clip edges to trim • click the timeline to seek</span></div><div class="timeline-scroll"><div id="tl" class="tl"><div class="tl-ruler" id="ruler"></div><div class="tl-lane video"></div><div class="tl-lane overlay"></div><div class="tl-lane audio"></div><span class="tl-label" style="top:29px">VIDEO</span><span class="tl-label" style="top:101px">OVERLAY</span><span class="tl-label" style="top:153px">AUDIO</span><div id="ph" class="ph"></div></div></div></div>
+</section>
+<aside class="ins">
+<div class="ed-card"><h3>Selected video</h3><div id="clipIns" class="hint">Select a video.</div></div>
+<div class="ed-card" style="margin-top:10px"><h3>Transition</h3><div class="field"><label>Effect</label><select id="transition"><option value="none">None</option><option value="fade">Crossfade</option><option value="dip">Dip to black</option><option value="flash">Flash</option><option value="wipe">Wipe</option></select></div><div class="field"><label>Duration <span id="td">0.4</span>s</label><input id="tdr" type="range" min=".1" max="1.5" step=".1" value=".4"></div></div>
+<div class="ed-card" style="margin-top:10px"><h3>Overlay</h3><div id="ovIns" class="hint">Select an image, text or sticker on the preview.</div></div>
+<div class="ed-card" style="margin-top:10px"><h3>Text</h3><div class="field"><input id="txt" placeholder="Text"></div><div class="two"><div class="field"><label>X %</label><input id="tx" type="number" value="50"></div><div class="field"><label>Y %</label><input id="ty" type="number" value="15"></div></div><div class="two"><div class="field"><label>Scale</label><input id="ts" type="range" min=".3" max="3" step=".05" value="1"></div><div class="field"><label>Rotation</label><input id="tr" type="number" value="0"></div></div><button class="ed-btn" id="addTxt">Add text</button><button class="ed-btn" id="keyTxt">Keyframe</button></div>
+<div class="ed-card" style="margin-top:10px"><h3>Stickers</h3><div id="stickers" class="sticker-grid"></div></div>
+<div class="ed-card" style="margin-top:10px"><h3>Assets</h3><div id="assets" class="asset-list"><span class="hint">No assets yet.</span></div></div>
+<div class="ed-card" style="margin-top:10px"><h3>Keyframes</h3><div id="keys" class="keys"><span class="hint">No keyframes.</span></div></div>
+<div class="ed-card" style="margin-top:10px"><h3>Export</h3><div class="field"><label>Title</label><input id="outTitle" value="Edited Clip"></div><div class="field"><label>Description</label><textarea id="outDesc"></textarea></div><p class="hint">Exports a new WebM clip; originals are not modified.</p></div>
+</aside></div></main>
+<div id="obox" class="overlay-box"></div><div id="corner" class="resize-corner"></div>
 
 <script src="app.js"></script>
 <script>
-const state = {
-  clips: [],
-  images: [],
-  audios: [],
-  stickers: [],
-  text: { value: "", x: 50, y: 12 },
-  currentIndex: 0,
-  playing: false,
-  duration: 0,
-  localVideo: document.createElement("video"),
-  raf: 0
-};
-
-state.localVideo.muted = false;
-state.localVideo.playsInline = true;
-state.localVideo.crossOrigin = "anonymous";
-
-const canvas = document.getElementById("preview");
-const ctx = canvas.getContext("2d");
-const statusEl = document.getElementById("status");
-const timelineEl = document.getElementById("timeline");
-const errorEl = document.getElementById("error");
-
-function showError(msg) {
-  errorEl.textContent = msg;
-  errorEl.style.display = "block";
-}
-
-function clearError() {
-  errorEl.textContent = "";
-  errorEl.style.display = "none";
-}
-
-function formatTime(s) {
-  s = Number(s) || 0;
-  const m = Math.floor(s / 60);
-  const sec = Math.floor(s % 60).toString().padStart(2, "0");
-  return m + ":" + sec;
-}
-
-function makeLocalClip(file) {
-  return {
-    type: "video",
-    name: file.name,
-    file,
-    url: URL.createObjectURL(file),
-    trimStart: 0,
-    trimEnd: null
-  };
-}
-
-function addVideoFile(file) {
-  if (!file || !file.type.startsWith("video/")) return;
-  state.clips.push(makeLocalClip(file));
-  renderTimeline();
-  if (state.clips.length === 1) selectClip(0);
-}
-
-async function addCurrentClip() {
-  clearError();
-  const id = new URLSearchParams(location.search).get("id");
-  if (!id) {
-    showError("Open the editor from a ClipNow clip or add a local video first.");
-    return;
-  }
-  try {
-    const result = await getClipById(id);
-    if (!result.data) throw new Error(result.error?.message || "Clip not found.");
-    const url = await getClipPlaybackUrl(result.data.file_path);
-    if (!url) throw new Error("Could not create a playback URL.");
-    state.clips.push({
-      type: "video",
-      name: result.data.title || "ClipNow clip",
-      url,
-      remote: true,
-      trimStart: 0,
-      trimEnd: null
-    });
-    renderTimeline();
-    if (state.clips.length === 1) selectClip(0);
-    statusEl.textContent = "Clip added: " + (result.data.title || "Clip");
-  } catch (e) {
-    showError(e.message || "Could not add current clip.");
-  }
-}
-
-function renderTimeline() {
-  if (!state.clips.length) {
-    timelineEl.innerHTML = '<div class="empty-box">Add one or more videos to start editing.</div>';
-    return;
-  }
-  timelineEl.innerHTML = state.clips.map((c, i) => {
-    const trimEnd = c.trimEnd == null ? "—" : formatTime(c.trimEnd);
-    return `
-      <div class="timeline-item">
-        <div class="timeline-top">
-          <div>
-            <div class="timeline-name">${escapeHtml(c.name)}</div>
-            <div class="timeline-meta">Clip ${i + 1} • In ${formatTime(c.trimStart)} • Out ${trimEnd}</div>
-          </div>
-          <div class="tool-row" style="margin:0">
-            <button class="tool-btn" data-act="select" data-i="${i}">Preview</button>
-            <button class="tool-btn" data-act="up" data-i="${i}">↑</button>
-            <button class="tool-btn" data-act="down" data-i="${i}">↓</button>
-            <button class="tool-btn" data-act="remove" data-i="${i}">Remove</button>
-          </div>
-        </div>
-        <div class="timeline-controls">
-          <div>
-            <label class="field-label">Start (seconds)</label>
-            <input class="field-input" data-trim="start" data-i="${i}" type="number" min="0" step="0.1" value="${c.trimStart}">
-          </div>
-          <div>
-            <label class="field-label">End (seconds)</label>
-            <input class="field-input" data-trim="end" data-i="${i}" type="number" min="0" step="0.1" value="${c.trimEnd == null ? "" : c.trimEnd}">
-          </div>
-          <button class="tool-btn" data-act="reset" data-i="${i}">Reset trim</button>
-        </div>
-      </div>`;
-  }).join("");
-}
-
-timelineEl.addEventListener("click", async e => {
-  const b = e.target.closest("button[data-act]");
-  if (!b) return;
-  const i = Number(b.dataset.i);
-  const act = b.dataset.act;
-  if (act === "select") await selectClip(i);
-  if (act === "remove") {
-    if (state.clips[i]?.url?.startsWith("blob:")) URL.revokeObjectURL(state.clips[i].url);
-    state.clips.splice(i, 1);
-    state.currentIndex = Math.min(state.currentIndex, Math.max(0, state.clips.length - 1));
-    renderTimeline();
-    if (state.clips.length) await selectClip(state.currentIndex);
-  }
-  if (act === "up" && i > 0) {
-    [state.clips[i - 1], state.clips[i]] = [state.clips[i], state.clips[i - 1]];
-    state.currentIndex = i - 1;
-    renderTimeline();
-  }
-  if (act === "down" && i < state.clips.length - 1) {
-    [state.clips[i + 1], state.clips[i]] = [state.clips[i], state.clips[i + 1]];
-    state.currentIndex = i + 1;
-    renderTimeline();
-  }
-  if (act === "reset") {
-    state.clips[i].trimStart = 0;
-    state.clips[i].trimEnd = null;
-    renderTimeline();
-  }
-});
-
-timelineEl.addEventListener("change", e => {
-  const input = e.target.closest("[data-trim]");
-  if (!input) return;
-  const i = Number(input.dataset.i);
-  const v = input.value === "" ? null : Math.max(0, Number(input.value));
-  if (input.dataset.trim === "start") state.clips[i].trimStart = v || 0;
-  else state.clips[i].trimEnd = v;
-  if (state.clips[i].trimEnd != null && state.clips[i].trimEnd <= state.clips[i].trimStart) {
-    state.clips[i].trimEnd = null;
-  }
-  renderTimeline();
-});
-
-async function selectClip(i) {
-  const clip = state.clips[i];
-  if (!clip) return;
-  state.currentIndex = i;
-  state.localVideo.src = clip.url;
-  state.localVideo.currentTime = clip.trimStart || 0;
-  await new Promise((resolve, reject) => {
-    const ok = () => { cleanup(); resolve(); };
-    const bad = () => { cleanup(); reject(new Error("Video could not be loaded. If this is a remote clip, storage CORS must allow browser playback.")); };
-    const cleanup = () => {
-      state.localVideo.removeEventListener("loadedmetadata", ok);
-      state.localVideo.removeEventListener("error", bad);
-    };
-    state.localVideo.addEventListener("loadedmetadata", ok);
-    state.localVideo.addEventListener("error", bad);
-    state.localVideo.load();
-  });
-  const end = clip.trimEnd == null ? state.localVideo.duration : Math.min(clip.trimEnd, state.localVideo.duration);
-  clip.trimEnd = clip.trimEnd == null ? null : end;
-  renderTimeline();
-  resizeCanvas();
-  drawFrame();
-  statusEl.textContent = clip.name + " • " + formatTime(state.localVideo.duration);
-}
-
-function resizeCanvas() {
-  const rect = canvas.getBoundingClientRect();
-  if (!rect.width) return;
-  canvas.width = 1280;
-  canvas.height = 720;
-}
-
-function drawFrame(timeOverride) {
-  resizeCanvas();
-  ctx.fillStyle = "#000";
-  ctx.fillRect(0,0,canvas.width,canvas.height);
-  if (state.localVideo.readyState >= 2) {
-    const vw = state.localVideo.videoWidth || 1280;
-    const vh = state.localVideo.videoHeight || 720;
-    const scale = Math.min(canvas.width / vw, canvas.height / vh);
-    const w = vw * scale;
-    const h = vh * scale;
-    ctx.drawImage(state.localVideo, (canvas.width-w)/2, (canvas.height-h)/2, w, h);
-  }
-  // Image overlays
-  state.images.forEach(img => {
-    if (!img.image.complete) return;
-    const w = img.width;
-    const h = img.height;
-    ctx.globalAlpha = img.opacity;
-    ctx.drawImage(img.image, img.x - w/2, img.y - h/2, w, h);
-    ctx.globalAlpha = 1;
-  });
-  // Stickers
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  state.stickers.forEach(s => {
-    ctx.font = `${s.size}px sans-serif`;
-    ctx.fillText(s.value, s.x, s.y);
-  });
-  // Text
-  if (state.text.value) {
-    ctx.font = "700 54px Arial";
-    ctx.textAlign = "center";
-    ctx.fillStyle = "#fff";
-    ctx.strokeStyle = "rgba(0,0,0,.7)";
-    ctx.lineWidth = 7;
-    const x = canvas.width * state.text.x / 100;
-    const y = canvas.height * state.text.y / 100;
-    ctx.strokeText(state.text.value, x, y);
-    ctx.fillText(state.text.value, x, y);
-  }
-}
-
-function stopPlayback() {
-  state.playing = false;
-  state.localVideo.pause();
-  cancelAnimationFrame(state.raf);
-}
-
-async function playEditor() {
-  if (!state.clips.length) return;
-  state.playing = true;
-  const clip = state.clips[state.currentIndex];
-  const start = clip.trimStart || 0;
-  const end = clip.trimEnd == null ? state.localVideo.duration : Math.min(clip.trimEnd, state.localVideo.duration);
-  if (state.localVideo.currentTime < start || state.localVideo.currentTime >= end) state.localVideo.currentTime = start;
-  try { await state.localVideo.play(); } catch (e) {}
-  const tick = () => {
-    if (!state.playing) return;
-    drawFrame();
-    const currentEnd = clip.trimEnd == null ? state.localVideo.duration : Math.min(clip.trimEnd, state.localVideo.duration);
-    if (state.localVideo.currentTime >= currentEnd - 0.03) {
-      state.localVideo.pause();
-      if (state.currentIndex < state.clips.length - 1) {
-        selectClip(state.currentIndex + 1).then(playEditor);
-      } else {
-        stopPlayback();
-      }
-      return;
-    }
-    state.raf = requestAnimationFrame(tick);
-  };
-  tick();
-}
-
-document.getElementById("playBtn").onclick = playEditor;
-document.getElementById("pauseBtn").onclick = stopPlayback;
-document.getElementById("fitBtn").onclick = drawFrame;
-
-document.getElementById("videoInput").onchange = e => [...e.target.files].forEach(addVideoFile);
-document.getElementById("addCurrentBtn").onclick = addCurrentClip;
-
-document.getElementById("imageInput").onchange = e => {
-  [...e.target.files].forEach(file => {
-    const image = new Image();
-    image.onload = drawFrame;
-    image.src = URL.createObjectURL(file);
-    state.images.push({ name:file.name, image, x:640, y:360, width:300, height:200, opacity:1 });
-  });
-  renderImages();
-  drawFrame();
-};
-
-function renderImages() {
-  const box = document.getElementById("images");
-  if (!state.images.length) { box.innerHTML = '<div class="empty-box">No image overlays</div>'; return; }
-  box.innerHTML = state.images.map((im,i) => `
-    <div class="asset"><div><b>${escapeHtml(im.name)}</b><br><small>Overlay image</small></div><button class="tool-btn" data-remove-image="${i}">Remove</button></div>`).join("");
-}
-
-document.getElementById("images").addEventListener("click", e => {
-  const b=e.target.closest("[data-remove-image]"); if(!b)return;
-  state.images.splice(Number(b.dataset.removeImage),1); renderImages(); drawFrame();
-});
-
-document.getElementById("audioInput").onchange = e => {
-  [...e.target.files].forEach(file => state.audios.push({name:file.name,file,url:URL.createObjectURL(file)}));
-  renderAudio();
-};
-
-function renderAudio() {
-  const box=document.getElementById("audioList");
-  if(!state.audios.length){box.innerHTML='<div class="empty-box">No extra audio</div>';return;}
-  box.innerHTML=state.audios.map((a,i)=>`
-    <div class="asset"><div><b>${escapeHtml(a.name)}</b><br><small>Extra audio track</small></div><button class="tool-btn" data-remove-audio="${i}">Remove</button></div>`).join("");
-}
-
-document.getElementById("audioList").addEventListener("click", e=>{
-  const b=e.target.closest("[data-remove-audio]"); if(!b)return;
-  state.audios.splice(Number(b.dataset.removeAudio),1); renderAudio();
-});
-
-document.getElementById("textOverlay").oninput = e => { state.text.value=e.target.value; drawFrame(); };
-document.getElementById("textX").oninput = e => { state.text.x=Math.max(0,Math.min(100,Number(e.target.value)||0)); drawFrame(); };
-document.getElementById("textY").oninput = e => { state.text.y=Math.max(0,Math.min(100,Number(e.target.value)||0)); drawFrame(); };
-
-const stickerValues = ["🔥","💯","GG","LOL","W","EZ","CLUTCH","1HP","NO WAY","WOW","AIM","CLIP"];
-document.getElementById("stickerGrid").innerHTML = stickerValues.map(v=>`<button class="sticker" type="button" data-sticker="${v}">${v}</button>`).join("");
-document.getElementById("stickerGrid").addEventListener("click",e=>{
-  const b=e.target.closest("[data-sticker]");if(!b)return;
-  state.stickers.push({value:b.dataset.sticker,x:640,y:140,size:54});
-  renderStickers();drawFrame();
-});
-function renderStickers(){
-  const box=document.getElementById("stickers");
-  if(!state.stickers.length){box.innerHTML='<div class="empty-box">No stickers</div>';return;}
-  box.innerHTML=state.stickers.map((s,i)=>`
-    <div class="asset"><div><b>${escapeHtml(s.value)}</b><br><small>Sticker at 50%, 19%</small></div><button class="tool-btn" data-remove-sticker="${i}">Remove</button></div>`).join("");
-}
-document.getElementById("stickers").addEventListener("click",e=>{
-  const b=e.target.closest("[data-remove-sticker]");if(!b)return;
-  state.stickers.splice(Number(b.dataset.removeSticker),1);renderStickers();drawFrame();
-});
-
-function waitForMetadata(video) {
-  if (video.readyState >= 1) return Promise.resolve();
-  return new Promise((resolve,reject)=>{
-    const on=()=>{cleanup();resolve();};
-    const err=()=>{cleanup();reject(new Error("Could not read video metadata."));};
-    const cleanup=()=>{video.removeEventListener("loadedmetadata",on);video.removeEventListener("error",err);};
-    video.addEventListener("loadedmetadata",on);video.addEventListener("error",err);
-  });
-}
-
-function getSupportedMime() {
-  const types=["video/webm;codecs=vp9,opus","video/webm;codecs=vp8,opus","video/webm"];
-  return types.find(t=>MediaRecorder.isTypeSupported(t)) || "";
-}
-
-async function exportProject() {
-  clearError();
-  if (!state.clips.length) { showError("Add at least one video clip."); return; }
-  const mime = getSupportedMime();
-  if (!mime) { showError("This browser does not support WebM recording."); return; }
-
-  const user = await getCurrentUser();
-  const exportBtn = document.getElementById("exportBtn");
-  exportBtn.disabled = true;
-  exportBtn.textContent = "Exporting...";
-  document.getElementById("exportProgress").style.width = "2%";
-
-  try {
-    stopPlayback();
-    const stream = canvas.captureStream(30);
-    const audioCtx = new AudioContext();
-    const destination = audioCtx.createMediaStreamDestination();
-
-    // Capture video element audio when possible.
-    try {
-      const videoSource = audioCtx.createMediaElementSource(state.localVideo);
-      videoSource.connect(destination);
-    } catch (_) {}
-
-    const exportAudios = [];
-    for (const item of state.audios) {
-      const audio = new Audio();
-      audio.src = item.url;
-      audio.preload = "auto";
-      const source = audioCtx.createMediaElementSource(audio);
-      source.connect(destination);
-      exportAudios.push(audio);
-    }
-
-    const recordStream = new MediaStream([
-      ...stream.getVideoTracks(),
-      ...destination.stream.getAudioTracks()
-    ]);
-    const chunks=[];
-    const recorder=new MediaRecorder(recordStream,{mimeType:mime});
-    recorder.ondataavailable=e=>{if(e.data.size)chunks.push(e.data);};
-
-    let elapsed=0;
-    exportAudios.forEach(a => a.play().catch(() => {}));
-    for (let i=0;i<state.clips.length;i++) {
-      await selectClip(i);
-      const clip=state.clips[i];
-      const end=clip.trimEnd==null?state.localVideo.duration:Math.min(clip.trimEnd,state.localVideo.duration);
-      state.localVideo.currentTime=clip.trimStart||0;
-      await waitForMetadata(state.localVideo);
-      state.localVideo.currentTime=clip.trimStart||0;
-      await new Promise(r=>{const f=()=>{state.localVideo.removeEventListener("seeked",f);r();};state.localVideo.addEventListener("seeked",f);});
-      await state.localVideo.play();
-      while (state.localVideo.currentTime < end - 0.03) {
-        drawFrame();
-        await new Promise(r=>requestAnimationFrame(r));
-        elapsed += 1/30;
-        document.getElementById("exportProgress").style.width=Math.min(95, (elapsed/Math.max(1,getTotalDuration()))*95)+"%";
-      }
-      state.localVideo.pause();
-    }
-
-    exportAudios.forEach(a => { a.pause(); a.currentTime = 0; });
-    recorder.stop();
-    await new Promise(resolve=>recorder.onstop=resolve);
-    recordStream.getTracks().forEach(t=>t.stop());
-    destination.stream.getTracks().forEach(t=>t.stop());
-    await audioCtx.close();
-
-    const blob=new Blob(chunks,{type:mime});
-    document.getElementById("exportProgress").style.width="100%";
-    statusEl.textContent="Export complete: "+formatBytes(blob.size);
-
-    if (user) {
-      const profile=await getProfile();
-      const used=Number(profile?.storage_used||0);
-      if (used+blob.size > MAX_STORAGE) throw new Error("5GB storage limit reached.");
-      const path=user.id+"/edited_"+Date.now()+".webm";
-      const up=await client.storage.from("clips").upload(path,blob,{contentType:"video/webm",upsert:false});
-      if (up.error) throw up.error;
-      const title=document.getElementById("exportTitle").value.trim()||"Edited Clip";
-      const description=document.getElementById("exportDescription").value.trim()||null;
-      let inserted=await client.from("clips").insert({
-        user_id:user.id,title,description,file_path:path,file_size:blob.size,
-        visibility:"public",views:0,likes_count:0,comments_count:0,
-        published_at:new Date().toISOString()
-      }).select("id").maybeSingle();
-      if (inserted.error && /column|schema cache/i.test(inserted.error.message||"")) {
-        inserted=await client.from("clips").insert({
-          user_id:user.id,title,description,file_path:path,file_size:blob.size,
-          visibility:"public",views:0
-        }).select("id").maybeSingle();
-      }
-      if (inserted.error) throw inserted.error;
-      await client.from("profiles").update({storage_used:used+blob.size}).eq("id",user.id);
-      if (inserted.data?.id) {
-        window.location.href="clip.html?id="+inserted.data.id;
-        return;
-      }
-    }
-
-    const a=document.createElement("a");
-    a.href=URL.createObjectURL(blob);
-    a.download=(document.getElementById("exportTitle").value.trim()||"edited-clip")+".webm";
-    a.click();
-  } catch(e) {
-    console.error(e);
-    showError(e.message||"Export failed.");
-    statusEl.textContent="Export failed.";
-  } finally {
-    exportBtn.disabled=false;
-    exportBtn.textContent="Export edited clip";
-  }
-}
-
-function getTotalDuration(){
-  return state.clips.reduce((sum,c)=>{
-    if(c.trimEnd!=null) return sum+Math.max(0,c.trimEnd-(c.trimStart||0));
-    return sum+5;
-  },0);
-}
-
-document.getElementById("exportBtn").onclick=exportProject;
-
-async function loadRequestedClip(){
-  renderTimeline();
-  renderImages();
-  renderAudio();
-  renderStickers();
-  const id=new URLSearchParams(location.search).get("id");
-  if(id) await addCurrentClip();
-  else {
-    statusEl.textContent="Add a video clip to begin.";
-    resizeCanvas(); drawFrame();
-  }
-}
-loadRequestedClip();
+const S={clips:[],overlays:[],audios:[],transitions:[],time:0,selectedClip:null,selectedOverlay:null,playing:false,hist:[],future:[],video:document.createElement("video")};
+S.video.muted=true;S.video.playsInline=true;S.video.preload="auto";
+const cv=document.getElementById("cv"),cx=cv.getContext("2d"),tl=document.getElementById("tl"),ph=document.getElementById("ph"),clock=document.getElementById("clock"),sel=document.getElementById("sel"),err=document.getElementById("err");
+const saveState=()=>S.hist.push(JSON.stringify({clips:S.clips.map(c=>({...c})),overlays:S.overlays.map(o=>({...o,keyframes:o.keyframes?[...o.keyframes]:[]})),audios:S.audios.map(a=>({...a})),transitions:S.transitions.map(t=>({...t})),time:S.time,selectedClip:S.selectedClip,selectedOverlay:S.selectedOverlay}));
+const restoreState=raw=>{const x=JSON.parse(raw);S.clips=x.clips;S.overlays=x.overlays;S.audios=x.audios;S.transitions=x.transitions;S.time=x.time;S.selectedClip=x.selectedClip;S.selectedOverlay=x.selectedOverlay;render();seek(S.time)};
+const checkpoint=()=>{saveState();S.future=[]};
+document.getElementById("undo").onclick=()=>{if(!S.hist.length)return;S.future.push(JSON.stringify(S));restoreState(S.hist.pop())};
+document.getElementById("redo").onclick=()=>{if(!S.future.length)return;S.hist.push(JSON.stringify(S));restoreState(S.future.pop())};
+const showErr=m=>{err.textContent=m;err.style.display="block"};const clearErr=()=>{err.textContent="";err.style.display="none"};
+const uid=()=>crypto.randomUUID?crypto.randomUUID():String(Date.now()+Math.random());
+const fmt=s=>Math.floor((s||0)/60)+":"+String(Math.floor((s||0)%60)).padStart(2,"0");
+const duration=()=>Math.max(0,...S.clips.map(c=>c.start+c.length),...S.overlays.map(o=>o.start+o.duration),...S.audios.map(a=>a.start+a.duration),0);
+const scale=()=>Math.max(1000,tl.clientWidth||1000)/Math.max(duration(),1);
+const xTime=x=>{const r=tl.getBoundingClientRect();return Math.max(0,Math.min(duration(),(x-r.left+tl.scrollLeft)/scale()))};
+function normalize(){S.clips.sort((a,b)=>a.start-b.start);let p=0;S.clips.forEach(c=>{c.start=p;c.end=p+c.length;p=c.end})}
+function loadVideo(url){S.video.src=url;return new Promise((res,rej)=>{if(S.video.readyState>=1)return res();const ok=()=>{cleanup();res()};const bad=()=>{cleanup();rej(new Error("Video could not be loaded."))};const cleanup=()=>{S.video.removeEventListener("loadedmetadata",ok);S.video.removeEventListener("error",bad)};S.video.addEventListener("loadedmetadata",ok);S.video.addEventListener("error",bad);S.video.load()})}
+async function addFile(file){if(!file?.type.startsWith("video/"))return;const v=document.createElement("video");v.src=URL.createObjectURL(file);v.preload="metadata";await new Promise((r,j)=>{v.onloadedmetadata=r;v.onerror=()=>j(new Error("Invalid video."))});checkpoint();const c={id:uid(),name:file.name,url:v.src,source:v.duration,in:0,out:v.duration,start:duration(),length:v.duration,file};S.clips.push(c);S.selectedClip=c.id;await seek(S.time);render()}
+async function addCurrent(){const id=new URLSearchParams(location.search).get("id");if(!id)return;const r=await getClipById(id);if(!r.data)throw new Error(r.error?.message||"Clip not found");const url=await getClipPlaybackUrl(r.data.file_path);const v=document.createElement("video");v.src=url;v.preload="metadata";await new Promise((r,j)=>{v.onloadedmetadata=r;v.onerror=()=>j(new Error("Clip video could not be loaded."))});checkpoint();S.clips.push({id:uid(),name:r.data.title||"ClipNow clip",url,source:v.duration,in:0,out:v.duration,start:0,length:v.duration,sourceId:id});S.selectedClip=S.clips.at(-1).id;await seek(0);render()}
+async function seek(t){S.time=Math.max(0,Math.min(duration(),t));const c=S.clips.find(c=>S.time>=c.start&&S.time<c.start+c.length);if(c){if(S.video.src!==c.url)try{await loadVideo(c.url)}catch(e){showErr(e.message)}const local=c.in+(S.time-c.start);if(S.video.readyState>=1)S.video.currentTime=Math.max(c.in,Math.min(c.out,local))}draw();renderTimeline()}
+function active(){return S.clips.find(c=>S.time>=c.start&&S.time<c.start+c.length)}
+function interp(o){if(!o.keyframes?.length)return o;const ks=[...o.keyframes].sort((a,b)=>a.time-b.time);if(S.time<=ks[0].time)return {...o,...ks[0]};if(S.time>=ks.at(-1).time)return {...o,...ks.at(-1)};let a=ks[0],b=ks[1];for(let i=0;i<ks.length-1;i++)if(S.time>=ks[i].time&&S.time<=ks[i+1].time){a=ks[i];b=ks[i+1];break}const q=(S.time-a.time)/(b.time-a.time||1);const ler=(x,y)=>typeof x==="number"&&typeof y==="number"?x+(y-x)*q:x;return {...o,x:ler(a.x,b.x),y:ler(a.y,b.y),w:ler(a.w,b.w),h:ler(a.h,b.h),size:ler(a.size,b.size),rotation:ler(a.rotation,b.rotation),opacity:ler(a.opacity,b.opacity)}}
+function draw(){cx.clearRect(0,0,1280,720);cx.fillStyle="#000";cx.fillRect(0,0,1280,720);const c=active();if(c&&S.video.readyState>=2){const vw=S.video.videoWidth||1280,vh=S.video.videoHeight||720,s=Math.min(1280/vw,720/vh),w=vw*s,h=vh*s;cx.drawImage(S.video,(1280-w)/2,(720-h)/2,w,h)}S.overlays.forEach(base=>{if(S.time<base.start||S.time>base.start+base.duration)return;const o=interp(base);cx.save();cx.globalAlpha=o.opacity??1;cx.translate(o.x,o.y);cx.rotate((o.rotation||0)*Math.PI/180);if(o.type==="image"&&o.img)cx.drawImage(o.img,-o.w/2,-o.h/2,o.w,o.h);if(o.type==="sticker"){cx.font=(o.size||56)+"px sans-serif";cx.textAlign="center";cx.textBaseline="middle";cx.fillText(o.value,0,0)}if(o.type==="text"){cx.font=(52*(o.scale||1))+"px Arial";cx.textAlign="center";cx.textBaseline="middle";cx.lineWidth=8;cx.strokeStyle="rgba(0,0,0,.7)";cx.fillStyle="#fff";cx.strokeText(o.value||"",0,0);cx.fillText(o.value||"",0,0)}cx.restore()});const cidx=S.clips.indexOf(c),tr=S.transitions[cidx];if(cidx>=0&&tr&&tr.type!=="none"&&c&&S.time>c.start+c.length-tr.duration){const p=(S.time-(c.start+c.length-tr.duration))/tr.duration;cx.save();if(tr.type==="dip"){cx.globalAlpha=Math.max(p,1-p);cx.fillStyle="#000";cx.fillRect(0,0,1280,720)}else if(tr.type==="flash"){cx.globalAlpha=Math.sin(p*Math.PI);cx.fillStyle="#fff";cx.fillRect(0,0,1280,720)}else{cx.globalAlpha=p<.5?p*2:(1-p)*2;cx.fillStyle="#fff";cx.fillRect(0,0,1280,720)}cx.restore()}}
+function drawSelection(){if(!S.selectedOverlay)return;const o=interp(S.overlays.find(x=>x.id===S.selectedOverlay)||{});const r=cv.getBoundingClientRect();if(!o||!o.w)return;const x=r.left+(o.x-o.w/2)*(r.width/1280),y=r.top+(o.y-o.h/2)*(r.height/720),w=o.w*(r.width/1280),h=o.h*(r.height/720);const box=document.getElementById("obox");box.style.display="block";box.style.left=x+"px";box.style.top=y+"px";box.style.width=w+"px";box.style.height=h+"px";const corner=document.getElementById("corner");corner.style.display="block";corner.style.left=(x+w-7)+"px";corner.style.top=(y+h-7)+"px"}
+function renderTimeline(){const k=scale();tl.querySelectorAll(".tl-block").forEach(x=>x.remove());S.clips.forEach(c=>{const b=document.createElement("div");b.className="tl-block tl-video"+(c.id===S.selectedClip?" selected":"");b.style.left=c.start*k+"px";b.style.width=Math.max(42,c.length*k)+"px";b.textContent=c.name;b.dataset.id=c.id;b.onclick=()=>{S.selectedClip=c.id;S.selectedOverlay=null;seek(c.start)};b.innerHTML='<span style="padding:7px;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+escapeHtml(c.name)+'</span><span class="trim-edge trim-l"></span><span class="trim-edge trim-r"></span>';b.querySelector(".trim-l").onpointerdown=e=>trimClip(e,c,true);b.querySelector(".trim-r").onpointerdown=e=>trimClip(e,c,false);tl.appendChild(b)});S.overlays.forEach(o=>{const b=document.createElement("div");b.className="tl-block tl-overlay"+(o.id===S.selectedOverlay?" selected":"");b.style.left=o.start*k+"px";b.style.width=Math.max(32,o.duration*k)+"px";b.textContent=o.type==="sticker"?o.value:o.type==="text"?"TEXT":o.name||"IMAGE";b.onclick=()=>{S.selectedOverlay=o.id;S.selectedClip=null;render()};tl.appendChild(b)});S.audios.forEach(a=>{const b=document.createElement("div");b.className="tl-block tl-audio";b.style.left=a.start*k+"px";b.style.width=Math.max(32,a.duration*k)+"px";b.textContent=a.name;tl.appendChild(b)});ph.style.left=S.time*k+"px";clock.textContent=fmt(S.time)+" / "+fmt(duration())}
+function trimClip(e,c,left){e.stopPropagation();checkpoint();const k=scale(),sx=e.clientX,oi=c.in,oo=c.out;const move=ev=>{const d=(ev.clientX-sx)/k;if(left){c.in=Math.max(0,Math.min(oo-.05,oi+d));c.length=c.out-c.in}else{c.out=Math.max(c.in+.05,Math.min(c.source,oo+d));c.length=c.out-c.in}normalize();renderTimeline();seek(S.time)};const up=()=>{document.removeEventListener("pointermove",move);document.removeEventListener("pointerup",up)};document.addEventListener("pointermove",move);document.addEventListener("pointerup",up)}
+tl.addEventListener("pointerdown",e=>{if(e.target.closest(".tl-block")||e.target===ph)return;seek(xTime(e.clientX))});ph.onpointerdown=e=>{const move=ev=>seek(xTime(ev.clientX));document.addEventListener("pointermove",move);document.addEventListener("pointerup",()=>document.removeEventListener("pointermove",move),{once:true})};
+function clipInspector(){const c=S.clips.find(x=>x.id===S.selectedClip),box=document.getElementById("clipIns");if(!c){box.innerHTML='<div class="hint">Select a video block.</div>';sel.textContent=S.selectedOverlay?"Overlay selected":"Nothing selected";return}sel.textContent=c.name;box.innerHTML='<div class="field"><label>Name</label><input id="cn"></div><div class="two"><div class="field"><label>In</label><input id="ci" type="number" step=".1"></div><div class="field"><label>Out</label><input id="co" type="number" step=".1"></div></div>';document.getElementById("cn").value=c.name;document.getElementById("ci").value=c.in.toFixed(2);document.getElementById("co").value=c.out.toFixed(2);document.getElementById("cn").oninput=e=>{c.name=e.target.value;renderTimeline()};document.getElementById("ci").onchange=e=>{checkpoint();c.in=Math.max(0,Math.min(c.out-.05,Number(e.target.value)||0));c.length=c.out-c.in;normalize();render()};document.getElementById("co").onchange=e=>{checkpoint();c.out=Math.max(c.in+.05,Math.min(c.source,Number(e.target.value)||c.source));c.length=c.out-c.in;normalize();render()}}
+function overlayInspector(){const o=S.overlays.find(x=>x.id===S.selectedOverlay),box=document.getElementById("ovIns");if(!o){box.innerHTML='<div class="hint">Select an image, text or sticker on the preview.</div>';return}box.innerHTML='<div class="two"><div class="field"><label>X</label><input id="ox" type="number"></div><div class="field"><label>Y</label><input id="oy" type="number"></div></div><div class="two"><div class="field"><label>Width / size</label><input id="ow" type="number"></div><div class="field"><label>Height</label><input id="oh" type="number"></div></div><div class="field"><label>Rotation</label><input id="or" type="number"></div><div class="field"><label>Opacity</label><input id="oo" type="range" min="0" max="1" step=".05"></div><div class="two"><div class="field"><label>Start</label><input id="os" type="number" step=".1"></div><div class="field"><label>Duration</label><input id="od" type="number" step=".1"></div></div><button class="ed-btn" id="okey">Keyframe</button>';document.getElementById("ox").value=Math.round(o.x);document.getElementById("oy").value=Math.round(o.y);document.getElementById("ow").value=Math.round(o.type==="image"?o.w:o.size);document.getElementById("oh").value=Math.round(o.type==="image"?o.h:o.size);document.getElementById("or").value=Math.round(o.rotation||0);document.getElementById("oo").value=o.opacity??1;document.getElementById("os").value=o.start;document.getElementById("od").value=o.duration;["ox","oy","ow","oh","or","oo","os","od"].forEach(id=>document.getElementById(id).oninput=()=>{o.x=Number(document.getElementById("ox").value);o.y=Number(document.getElementById("oy").value);if(o.type==="image"){o.w=Math.max(10,Number(document.getElementById("ow").value));o.h=Math.max(10,Number(document.getElementById("oh").value))}else{o.size=Math.max(10,Number(document.getElementById("ow").value));o.w=o.size;o.h=o.size}o.rotation=Number(document.getElementById("or").value);o.opacity=Number(document.getElementById("oo").value);o.start=Math.max(0,Number(document.getElementById("os").value));o.duration=Math.max(.1,Number(document.getElementById("od").value));render()});document.getElementById("okey").onclick=()=>addOverlayKey(o)}
+function addOverlayKey(o){checkpoint();o.keyframes=o.keyframes||[];const k={time:S.time,x:o.x,y:o.y,w:o.w,h:o.h,size:o.size,rotation:o.rotation,opacity:o.opacity};o.keyframes.push(k);renderKeys()}
+function renderKeys(){const box=document.getElementById("keys"),arr=[];S.overlays.forEach(o=>(o.keyframes||[]).forEach(k=>arr.push({o,k})));if(!arr.length){box.innerHTML='<span class="hint">No keyframes.</span>';return}arr.sort((a,b)=>a.k.time-b.k.time);box.innerHTML=arr.map((x,i)=>'<div class="key"><span>'+fmt(x.k.time)+' • '+escapeHtml(x.o.type)+'</span><button class="ed-btn" data-j="'+x.k.time+'">Jump</button></div>').join("");box.querySelectorAll("[data-j]").forEach(b=>b.onclick=()=>seek(Number(b.dataset.j)))}
+function renderAssets(){const box=document.getElementById("assets"),arr=[...S.overlays.map(o=>({id:o.id,name:o.type==="sticker"?o.value:o.type==="text"?"Text":o.name})),...S.audios.map(a=>({id:a.id,name:a.name}))];if(!arr.length){box.innerHTML='<span class="hint">No assets yet.</span>';return}box.innerHTML=arr.map(x=>'<div class="asset"><span>'+escapeHtml(x.name)+'</span><button class="ed-btn" data-a="'+x.id+'">Remove</button></div>').join("");box.querySelectorAll("[data-a]").forEach(b=>b.onclick=()=>{checkpoint();S.overlays=S.overlays.filter(o=>o.id!==b.dataset.a);S.audios=S.audios.filter(a=>a.id!==b.dataset.a);S.selectedOverlay=null;render()})}
+function render(){renderTimeline();clipInspector();overlayInspector();renderAssets();renderKeys();draw();drawSelection()}
+cv.addEventListener("pointerdown",e=>{const r=cv.getBoundingClientRect(),sx=1280/r.width,sy=720/r.height,x=(e.clientX-r.left)*sx,y=(e.clientY-r.top)*sy;let hit=null;for(let i=S.overlays.length-1;i>=0;i--){const o=interp(S.overlays[i]);if(S.time<o.start||S.time>o.start+o.duration)continue;if(o.type==="image"?Math.abs(x-o.x)<=o.w/2&&Math.abs(y-o.y)<=o.h/2:Math.hypot(x-o.x,y-o.y)<=Math.max(o.size||40,32))hit=o}if(!hit)return;S.selectedOverlay=hit.id;S.selectedClip=null;checkpoint();const ox=hit.x,oy=hit.y,sx0=e.clientX,sy0=e.clientY;cv.setPointerCapture(e.pointerId);const move=ev=>{hit.x=ox+(ev.clientX-sx0)*sx;hit.y=oy+(ev.clientY-sy0)*sy;draw();drawSelection();overlayInspector()};const up=()=>{cv.removeEventListener("pointermove",move);render()};cv.addEventListener("pointermove",move);cv.addEventListener("pointerup",up,{once:true})});
+document.getElementById("corner").onpointerdown=e=>{const o=S.overlays.find(x=>x.id===S.selectedOverlay);if(!o)return;const r=cv.getBoundingClientRect(),sx=1280/r.width,sy=720/r.height,start=e.clientX,base=o.w||o.size;const move=ev=>{const w=Math.max(20,base+(ev.clientX-start)*sx);if(o.type==="image"){const ratio=(o.h||200)/(o.w||320);o.w=w;o.h=w*ratio}else{o.size=w;o.w=w;o.h=w}draw();drawSelection()};cv.setPointerCapture?.(e.pointerId);document.addEventListener("pointermove",move);document.addEventListener("pointerup",()=>{document.removeEventListener("pointermove",move);render()}, {once:true})};
+document.getElementById("videos").onchange=e=>[...e.target.files].forEach(f=>addFile(f).catch(x=>showErr(x.message)));
+document.getElementById("images").onchange=e=>[...e.target.files].forEach(file=>{const img=new Image();img.src=URL.createObjectURL(file);img.onload=draw;checkpoint();const o={id:uid(),type:"image",name:file.name,img,x:640,y:360,w:320,h:200,rotation:0,opacity:1,start:S.time,duration:5,keyframes:[]};S.overlays.push(o);S.selectedOverlay=o.id;render()});
+document.getElementById("sounds").onchange=e=>[...e.target.files].forEach(file=>{checkpoint();S.audios.push({id:uid(),name:file.name,url:URL.createObjectURL(file),start:S.time,duration:10,file});render()});
+document.getElementById("addTxt").onclick=()=>{checkpoint();const o={id:uid(),type:"text",value:document.getElementById("txt").value||"Text",x:1280*(Number(document.getElementById("tx").value)/100),y:720*(Number(document.getElementById("ty").value)/100),scale:Number(document.getElementById("ts").value)||1,rotation:Number(document.getElementById("tr").value)||0,w:320,h:80,opacity:1,start:S.time,duration:5,keyframes:[]};S.overlays.push(o);S.selectedOverlay=o.id;render()};
+document.getElementById("keyTxt").onclick=()=>{const o=S.overlays.find(x=>x.id===S.selectedOverlay&&x.type==="text");if(o)addOverlayKey(o)};
+["txt","tx","ty","ts","tr"].forEach(id=>document.getElementById(id).oninput=()=>{const o=S.overlays.find(x=>x.id===S.selectedOverlay&&x.type==="text");if(!o)return;o.value=document.getElementById("txt").value;o.x=1280*(Number(document.getElementById("tx").value)/100);o.y=720*(Number(document.getElementById("ty").value)/100);o.scale=Number(document.getElementById("ts").value)||1;o.rotation=Number(document.getElementById("tr").value)||0;render()});
+["🔥","💯","GG","W","EZ","CLUTCH","1HP","LOL","AIM","WOW"].forEach(v=>{const b=document.createElement("button");b.textContent=v;b.onclick=()=>{checkpoint();const o={id:uid(),type:"sticker",value:v,x:640,y:150,size:58,w:58,h:58,rotation:0,opacity:1,start:S.time,duration:4,keyframes:[]};S.overlays.push(o);S.selectedOverlay=o.id;render()};document.getElementById("stickers").appendChild(b)});
+document.getElementById("transition").onchange=()=>{const i=S.clips.findIndex(c=>c.id===S.selectedClip);if(i<0||i>=S.clips.length-1)return;checkpoint();S.transitions[i]={type:document.getElementById("transition").value,duration:Number(document.getElementById("tdr").value)};render()};
+document.getElementById("tdr").oninput=e=>{document.getElementById("td").textContent=e.target.value;const i=S.clips.findIndex(c=>c.id===S.selectedClip);if(i>=0&&i<S.clips.length-1)S.transitions[i]={type:document.getElementById("transition").value,duration:Number(e.target.value)};renderTimeline()};
+document.getElementById("cut").onclick=()=>{const c=active();if(!c)return;const local=c.in+(S.time-c.start);if(local<=c.in+.05||local>=c.out-.05)return;checkpoint();const i=S.clips.indexOf(c),a={...c,id:uid(),name:c.name+" A",out:local,length:local-c.in},b={...c,id:uid(),name:c.name+" B",in:local,start:c.start+length(a),length:c.out-local};S.clips.splice(i,1,a,b);normalize();S.selectedClip=b.id;render()};
+function length(c){return c.length}
+document.getElementById("del").onclick=()=>{if(S.selectedOverlay){checkpoint();S.overlays=S.overlays.filter(o=>o.id!==S.selectedOverlay);S.selectedOverlay=null}else if(S.selectedClip){checkpoint();S.clips=S.clips.filter(c=>c.id!==S.selectedClip);S.selectedClip=null;normalize()}render()};
+document.getElementById("play").onclick=async()=>{if(!duration())return;S.playing=true;const tick=async()=>{if(!S.playing)return;await seek(Math.min(duration(),S.time+1/30));if(S.time>=duration()){S.playing=false;return}requestAnimationFrame(tick)};tick()};
+document.getElementById("pause").onclick=()=>S.playing=false;document.getElementById("home").onclick=()=>seek(0);
+async function exportProject(){clearErr();if(!S.clips.length){showErr("Add a video first.");return}const mime=["video/webm;codecs=vp9,opus","video/webm;codecs=vp8,opus","video/webm"].find(x=>MediaRecorder.isTypeSupported(x));if(!mime){showErr("Browser export is not supported.");return}const btn=document.getElementById("export");btn.disabled=true;btn.textContent="Exporting...";try{const stream=cv.captureStream(30),rec=new MediaRecorder(stream,{mimeType:mime}),chunks=[];rec.ondataavailable=e=>e.data.size&&chunks.push(e.data);rec.start();for(let t=0;t<duration();t+=1/30){S.time=t;await seek(t);draw();await new Promise(r=>requestAnimationFrame(r))}rec.stop();await new Promise(r=>rec.onstop=r);stream.getTracks().forEach(t=>t.stop());const blob=new Blob(chunks,{type:mime});const user=await getCurrentUser();if(user){const p=await getProfile();const path=user.id+"/edited_"+Date.now()+".webm";const up=await client.storage.from("clips").upload(path,blob,{contentType:"video/webm",upsert:false});if(up.error)throw up.error;const title=document.getElementById("outTitle").value.trim()||"Edited Clip";const description=document.getElementById("outDesc").value.trim()||null;let ins=await client.from("clips").insert({user_id:user.id,title,description,file_path:path,file_size:blob.size,visibility:"public",views:0,likes_count:0,comments_count:0,published_at:new Date().toISOString()}).select("id").maybeSingle();if(ins.error&&/column|schema cache/i.test(ins.error.message||""))ins=await client.from("clips").insert({user_id:user.id,title,description,file_path:path,file_size:blob.size,visibility:"public",views:0}).select("id").maybeSingle();if(ins.error)throw ins.error;if(ins.data?.id){location.href="clip.html?id="+ins.data.id;return}}const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="clipnow-edit.webm";a.click()}catch(e){console.error(e);showErr(e.message||"Export failed")}finally{btn.disabled=false;btn.textContent="Export"}}
+document.getElementById("export").onclick=exportProject;
+async function init(){try{await addCurrent()}catch(e){showErr(e.message)}normalize();render();if(!new URLSearchParams(location.search).get("id"))seek(0)}
+init();
 </script>
 </body>
 </html>
