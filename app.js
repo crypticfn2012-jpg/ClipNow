@@ -1,5 +1,5 @@
 const SUPABASE_URL = "https://fuffkzhzabnomohlemuz.supabase.co";
-const SUPABASE_ANON_KEY = String.fromCharCode(101,121,74,104,98,71,99,105,79,105,74,73,85,122,73,49,78,105,73,115,73,110,82,53,99,67,73,54,73,107,112,88,86,67,74,57,46,101,121,74,112,99,51,77,105,79,105,74,122,100,88,66,104,89,109,70,122,90,83,73,115,73,110,74,108,90,105,73,54,73,109,90,49,90,109,90,114,101,109,104,54,89,87,74,117,98,50,49,118,97,71,120,108,98,88,86,54,73,105,119,105,99,109,57,115,90,83,73,54,73,109,70,117,98,50,52,105,76,67,74,112,89,88,81,105,79,106,69,51,79,68,107,119,78,106,85,50,78,68,107,115,73,109,86,52,99,67,73,54,77,106,69,119,78,68,89,48,77,84,89,48,79,88,48,46,115,65,84,88,121,84,110,104,115,84,110,70,74,114,122,50,82,70,51,115,102,103,119,122,76,107,49,53,114,77,101,97,105,71,83,73,55,45,97,81,76,79,107);
+const SUPABASE_ANON_KEY = String.fromCharCode(101,121,74,104,98,71,99,105,79,105,74,73,85,122,73,49,78,105,73,115,73,110,82,53,99,67,73,54,73,107,112,88,86,67,74,57,46,101,121,74,112,99,51,77,105,79,105,74,122,100,88,66,104,89,109,70,122,90,83,73,115,73,110,74,108,90,105,73,54,73,109,90,49,90,109,90,114,101,109,104,54,89,87,74,117,98,50,49,118,97,71,120,108,98,88,86,54,73,105,119,105,99,109,57,115,90,83,73,54,73,109,70,117,98,50,52,105,76,67,74,112,89,88,81,105,79,106,69,51,79,68,107,119,78,106,85,50,78,68,107,115,73,109,86,52,99,67,73,54,77,106,69,119,78,68,89,48,77,84,89,48,79,88,48,115,65,84,88,121,84,110,104,115,84,110,70,74,114,122,50,82,70,51,115,102,103,119,122,76,107,49,53,114,77,101,97,105,71,83,73,55,45,97,81,76,79,107);
 const CLIPPER_URL = "https://raw.githubusercontent.com/crypticfn2012-jpg/ron-violent-monkey-scripts/main/ron-cliptools.user.js";
 const MAX_STORAGE = 5 * 1024 * 1024 * 1024;
 
@@ -199,6 +199,37 @@ function clipCardHtml(clip, username) {
   `;
 }
 
+function setupClipNowBranding() {
+  // Use the new logo as the site favicon on every page that loads app.js.
+  let favicon = document.querySelector('link[rel~="icon"]');
+  if (!favicon) {
+    favicon = document.createElement("link");
+    favicon.rel = "icon";
+    document.head.appendChild(favicon);
+  }
+  favicon.type = "image/svg+xml";
+  favicon.href = "assets/clipnow-logo.svg";
+
+  // Keep the navbar compact, but show the new wordmark in a clean white badge.
+  document.querySelectorAll(".logo").forEach((logo) => {
+    if (logo.dataset.clipnowBranded === "1") return;
+    logo.dataset.clipnowBranded = "1";
+    logo.innerHTML = '<span class="clipnow-logo-badge"><img src="assets/clipnow-wordmark.svg" alt="ClipNow"></span>';
+    logo.style.setProperty("display", "inline-flex", "important");
+    logo.style.setProperty("align-items", "center", "important");
+    logo.style.setProperty("text-decoration", "none", "important");
+
+    const badge = logo.querySelector(".clipnow-logo-badge");
+    const img = logo.querySelector("img");
+    if (badge) {
+      badge.style.cssText = "display:inline-flex;align-items:center;justify-content:center;width:116px;height:40px;background:#fff;border-radius:6px;overflow:hidden;box-sizing:border-box;padding:2px 5px;";
+    }
+    if (img) {
+      img.style.cssText = "display:block;width:108px;height:auto;max-height:37px;object-fit:contain;";
+    }
+  });
+}
+
 function ensureNavbar() {
   let navbar = document.querySelector("nav.navbar");
 
@@ -250,7 +281,7 @@ function ensureNavbar() {
   navbar.style.setProperty("box-sizing", "border-box", "important");
 
   const logo = navbar.querySelector(".logo");
-  if (logo) logo.style.setProperty("display", "inline-block", "important");
+  if (logo) logo.style.setProperty("display", "inline-flex", "important");
 
   const right = navbar.querySelector(".nav-right");
   if (right) {
@@ -305,6 +336,7 @@ async function applyNavbarUser(user) {
 
 async function updateNavbar() {
   ensureNavbar();
+  setupClipNowBranding();
   setActiveNav();
 
   try {
