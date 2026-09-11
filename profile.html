@@ -195,8 +195,8 @@
         (isThisDev ? ' <span class="dev-badge">DEV</span>' : "");
       const header = document.querySelector(".profile-header");
       if (header) {
-        if (isThisDev) header.classList.add("profile-dev");
-        else header.classList.remove("profile-dev");
+        if (isThisDev) { header.classList.add("profile-dev"); header.classList.add("profile-owner"); }
+        else { header.classList.remove("profile-dev"); header.classList.remove("profile-owner"); }
       }
     }
 
