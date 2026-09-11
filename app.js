@@ -183,7 +183,7 @@ async function getClipPlaybackUrl(filePath) {
 function clipCardHtml(clip, username) {
   const name = username || clip.profiles?.username || "Unknown";
   const rainbow = String(clip.title || "").startsWith("[[RAINBOW]]");
-  const cleanTitle = rainbow ? String(clip.title).replace(/^\\[\\[RAINBOW\\]\\]/, "").trim() : (clip.title || "Untitled");
+  const cleanTitle = rainbow ? String(clip.title).replace(/^\[\[RAINBOW\]\]/, "").trim() : (clip.title || "Untitled");
   const vis = clip.visibility && clip.visibility !== "public" ? ` • ${clip.visibility}` : "";
 
   return `
