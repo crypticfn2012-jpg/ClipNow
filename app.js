@@ -200,36 +200,15 @@ function clipCardHtml(clip, username) {
 }
 
 function setupClipNowBranding() {
-  // Use the new logo as the site favicon on every page that loads app.js.
   let favicon = document.querySelector('link[rel~="icon"]');
   if (!favicon) {
     favicon = document.createElement("link");
     favicon.rel = "icon";
     document.head.appendChild(favicon);
   }
-  favicon.type = "image/svg+xml";
-  favicon.href = "assets/clipnow-logo.svg";
-
-  // Keep the navbar compact, but show the new wordmark in a clean white badge.
-  document.querySelectorAll(".logo").forEach((logo) => {
-    if (logo.dataset.clipnowBranded === "1") return;
-    logo.dataset.clipnowBranded = "1";
-    logo.innerHTML = '<span class="clipnow-logo-badge"><img src="assets/clipnow-wordmark.svg" alt="ClipNow"></span>';
-    logo.style.setProperty("display", "inline-flex", "important");
-    logo.style.setProperty("align-items", "center", "important");
-    logo.style.setProperty("text-decoration", "none", "important");
-
-    const badge = logo.querySelector(".clipnow-logo-badge");
-    const img = logo.querySelector("img");
-    if (badge) {
-      badge.style.cssText = "display:inline-flex;align-items:center;justify-content:center;width:116px;height:40px;background:#fff;border-radius:6px;overflow:hidden;box-sizing:border-box;padding:2px 5px;";
-    }
-    if (img) {
-      img.style.cssText = "display:block;width:108px;height:auto;max-height:37px;object-fit:contain;";
-    }
-  });
+  favicon.type = "image/png";
+  favicon.href = "assets/clipnow-favicon.png?v=3";
 }
-
 function ensureNavbar() {
   let navbar = document.querySelector("nav.navbar");
 
