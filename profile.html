@@ -25,70 +25,33 @@
     .social-list-head { display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px; }
     .social-list { display:grid;gap:8px; }
     .social-list .user-card { margin:0; }
+    .profile-links { display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 16px; }
+    .profile-link { display:inline-flex;align-items:center;gap:7px;padding:8px 11px;border:1px solid #303030;border-radius:9px;background:#151515;color:#ddd;text-decoration:none;font-size:12px;font-weight:600;transition:.16s ease; }
+    .profile-link:hover { border-color:#22c55e;background:#191f1b;color:#fff;transform:translateY(-1px); }
+    .profile-link-icon { width:16px;height:16px;display:inline-flex;align-items:center;justify-content:center;color:#22c55e;font-size:11px;font-weight:800; }
+    .links-heading { color:#777;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;margin:14px 0 7px; }
+    .link-grid { display:grid;grid-template-columns:1fr 1fr;gap:12px; }
+    .link-field { display:grid;gap:7px; }
+    .link-field.full { grid-column:1/-1; }
+    .link-field label { color:#aaa;font-size:12px;font-weight:600; }
+    .link-field input { width:100%;box-sizing:border-box; }
+    .link-help { color:#666;font-size:11px;line-height:1.45;margin-top:-2px; }
+    @media (max-width:600px) { .link-grid { grid-template-columns:1fr; } .link-field.full { grid-column:auto; } }
 
-    /* OG Member styling - kept in profile.html so every visitor gets it */
     .og-profile {
       background:
         radial-gradient(circle at 20% 10%, rgba(255,210,70,.12), transparent 32%),
         radial-gradient(circle at 80% 20%, rgba(255,170,20,.08), transparent 30%),
         #0f0f0f;
     }
-    .og-profile-header {
-      position:relative;
-      padding:24px;
-      margin:-8px 0 32px -8px;
-      border:1px solid rgba(255,205,70,.45);
-      border-radius:18px;
-      background:linear-gradient(135deg,rgba(255,215,80,.13),rgba(120,70,0,.08),rgba(255,235,150,.10));
-      box-shadow:0 0 30px rgba(255,190,40,.12), inset 0 0 35px rgba(255,210,80,.05);
-      overflow:hidden;
-    }
-    .og-profile-header::before {
-      content:"";
-      position:absolute;
-      inset:-2px;
-      pointer-events:none;
-      border-radius:inherit;
-      background:linear-gradient(110deg,transparent 20%,rgba(255,245,190,.25) 45%,transparent 65%);
-      background-size:220% 100%;
-      animation:ogShine 4s linear infinite;
-    }
-    .og-profile-header > * { position:relative; z-index:1; }
-    .og-name {
-      display:inline-block;
-      font-weight:800;
-      background:linear-gradient(110deg,#fff2a6,#ffd23f,#fff8c7,#e5a817,#fff2a6);
-      background-size:250% auto;
-      -webkit-background-clip:text;
-      background-clip:text;
-      color:transparent;
-      text-shadow:0 0 18px rgba(255,205,60,.28);
-      animation:ogGold 3s linear infinite;
-    }
-    .og-badge {
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      margin-left:7px;
-      padding:2px 8px;
-      min-height:22px;
-      border:1px solid rgba(255,226,112,.8);
-      border-radius:999px;
-      color:#241900;
-      font-size:11px;
-      font-weight:900;
-      letter-spacing:.08em;
-      vertical-align:middle;
-      background:linear-gradient(110deg,#fff1a6,#ffc928,#fff7c4,#e2a30d,#fff1a6);
-      background-size:240% auto;
-      box-shadow:0 0 12px rgba(255,195,35,.28),inset 0 1px 0 rgba(255,255,255,.65);
-      animation:ogGold 3s linear infinite;
-    }
+    .og-profile-header { position:relative;padding:24px;margin:-8px 0 32px -8px;border:1px solid rgba(255,205,70,.45);border-radius:18px;background:linear-gradient(135deg,rgba(255,215,80,.13),rgba(120,70,0,.08),rgba(255,235,150,.10));box-shadow:0 0 30px rgba(255,190,40,.12),inset 0 0 35px rgba(255,210,80,.05);overflow:hidden; }
+    .og-profile-header::before { content:"";position:absolute;inset:-2px;pointer-events:none;border-radius:inherit;background:linear-gradient(110deg,transparent 20%,rgba(255,245,190,.25) 45%,transparent 65%);background-size:220% 100%;animation:ogShine 4s linear infinite; }
+    .og-profile-header > * { position:relative;z-index:1; }
+    .og-name { display:inline-block;font-weight:800;background:linear-gradient(110deg,#fff2a6,#ffd23f,#fff8c7,#e5a817,#fff2a6);background-size:250% auto;-webkit-background-clip:text;background-clip:text;color:transparent;text-shadow:0 0 18px rgba(255,205,60,.28);animation:ogGold 3s linear infinite; }
+    .og-badge { display:inline-flex;align-items:center;justify-content:center;margin-left:7px;padding:2px 8px;min-height:22px;border:1px solid rgba(255,226,112,.8);border-radius:999px;color:#241900;font-size:11px;font-weight:900;letter-spacing:.08em;vertical-align:middle;background:linear-gradient(110deg,#fff1a6,#ffc928,#fff7c4,#e2a30d,#fff1a6);background-size:240% auto;box-shadow:0 0 12px rgba(255,195,35,.28),inset 0 1px 0 rgba(255,255,255,.65);animation:ogGold 3s linear infinite; }
     @keyframes ogGold { to { background-position:250% center; } }
     @keyframes ogShine { from { background-position:-220% 0; } to { background-position:220% 0; } }
-    @media (max-width:600px) {
-      .og-profile-header { margin-left:0;margin-right:0;padding:18px; }
-    }
+    @media (max-width:600px) { .og-profile-header { margin-left:0;margin-right:0;padding:18px; } }
   </style>
 </head>
 <body>
@@ -124,6 +87,7 @@
         <h1 id="display-name">Loading...</h1>
         <div class="handle" id="handle"></div>
         <div class="bio" id="bio"></div>
+        <div id="profile-links" class="profile-links"></div>
         <div class="social-stats" id="social-stats"></div>
         <div class="stats" id="profile-stats"></div>
         <div class="social-actions" id="social-actions"></div>
@@ -158,6 +122,21 @@
     <div class="form-group"><label>Display Name</label><input type="text" id="edit-display-name" placeholder="Your name"></div>
     <div class="form-group"><label>Username</label><input type="text" id="edit-username" placeholder="username"></div>
     <div class="form-group"><label>Bio</label><textarea id="edit-bio" placeholder="Hey im new to ClipNow"></textarea></div>
+
+    <div class="links-heading">Social links</div>
+    <div class="link-grid">
+      <div class="link-field"><label for="edit-youtube">YouTube</label><input type="url" id="edit-youtube" placeholder="https://youtube.com/@username" autocomplete="url"><div class="link-help">Must be a YouTube link.</div></div>
+      <div class="link-field"><label for="edit-x">X / Twitter</label><input type="url" id="edit-x" placeholder="https://x.com/username" autocomplete="url"><div class="link-help">x.com or twitter.com only.</div></div>
+      <div class="link-field"><label for="edit-instagram">Instagram</label><input type="url" id="edit-instagram" placeholder="https://instagram.com/username" autocomplete="url"><div class="link-help">Must be an Instagram link.</div></div>
+      <div class="link-field"><label for="edit-tiktok">TikTok</label><input type="url" id="edit-tiktok" placeholder="https://tiktok.com/@username" autocomplete="url"><div class="link-help">Must be a TikTok link.</div></div>
+      <div class="link-field"><label for="edit-twitch">Twitch</label><input type="url" id="edit-twitch" placeholder="https://twitch.tv/username" autocomplete="url"><div class="link-help">Must be a Twitch link.</div></div>
+      <div class="link-field"><label for="edit-discord">Discord</label><input type="url" id="edit-discord" placeholder="https://discord.gg/server" autocomplete="url"><div class="link-help">discord.gg or discord.com.</div></div>
+      <div class="link-field"><label for="edit-github">GitHub</label><input type="url" id="edit-github" placeholder="https://github.com/username" autocomplete="url"><div class="link-help">Must be a GitHub link.</div></div>
+      <div class="link-field"><label for="edit-kick">Kick</label><input type="url" id="edit-kick" placeholder="https://kick.com/username" autocomplete="url"><div class="link-help">Must be a Kick link.</div></div>
+      <div class="link-field full"><label for="edit-custom-label">Custom link name</label><input type="text" id="edit-custom-label" placeholder="My website" maxlength="40"></div>
+      <div class="link-field full"><label for="edit-custom">Custom link</label><input type="url" id="edit-custom" placeholder="https://example.com" autocomplete="url"><div class="link-help">One extra link for anything else. It can point to any normal http or https website.</div></div>
+    </div>
+
     <div class="row"><button class="btn btn-green" onclick="saveProfile()">Save Changes</button><button class="btn btn-outline" onclick="hideEditor()">Cancel</button></div>
   </div>
 </div>
@@ -167,6 +146,59 @@
 <script>
 let currentProfile = null;
 let viewingOwnProfile = true;
+
+const PROFILE_LINK_RULES = {
+  youtube_url: { label:"YouTube", hosts:["youtube.com","www.youtube.com","m.youtube.com","youtu.be"] },
+  x_url: { label:"X / Twitter", hosts:["x.com","www.x.com","twitter.com","www.twitter.com"] },
+  instagram_url: { label:"Instagram", hosts:["instagram.com","www.instagram.com"] },
+  tiktok_url: { label:"TikTok", hosts:["tiktok.com","www.tiktok.com"] },
+  twitch_url: { label:"Twitch", hosts:["twitch.tv","www.twitch.tv"] },
+  discord_url: { label:"Discord", hosts:["discord.gg","discord.com","www.discord.com"] },
+  github_url: { label:"GitHub", hosts:["github.com","www.github.com"] },
+  kick_url: { label:"Kick", hosts:["kick.com","www.kick.com"] }
+};
+
+function normalizeProfileLink(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  if (!/^https?:\/\//i.test(raw)) return "https://" + raw;
+  return raw;
+}
+
+function validateProfileLink(value, field) {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  const url = normalizeProfileLink(raw);
+  let parsed;
+  try { parsed = new URL(url); } catch (_) { throw new Error(`${field.label}: please enter a valid URL.`); }
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") throw new Error(`${field.label}: only http:// or https:// links are allowed.`);
+  const host = parsed.hostname.toLowerCase();
+  if (field.hosts && !field.hosts.includes(host)) throw new Error(`${field.label}: that doesn't look like a ${field.label} link.`);
+  return url;
+}
+
+function validateCustomLink(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  const url = normalizeProfileLink(raw);
+  let parsed;
+  try { parsed = new URL(url); } catch (_) { throw new Error("Custom link: please enter a valid URL."); }
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") throw new Error("Custom link: only http:// or https:// links are allowed.");
+  return url;
+}
+
+function renderProfileLinks(profile) {
+  const box = document.getElementById("profile-links");
+  if (!box) return;
+  const links = [
+    ["youtube_url","YouTube","YT"],["x_url","X","X"],["instagram_url","Instagram","IG"],["tiktok_url","TikTok","TT"],
+    ["twitch_url","Twitch","TW"],["discord_url","Discord","DS"],["github_url","GitHub","GH"],["kick_url","Kick","K"],
+    ["custom_link_url", profile.custom_link_label || "Website","↗"]
+  ];
+  const valid = links.filter(([key]) => profile[key]);
+  box.innerHTML = valid.map(([key,label,icon]) => `<a class="profile-link" href="${escapeHtml(profile[key])}" target="_blank" rel="noopener noreferrer"><span class="profile-link-icon">${escapeHtml(icon)}</span>${escapeHtml(label)}</a>`).join("");
+  box.style.display = valid.length ? "flex" : "none";
+}
 
 function setAvatar(url, username) {
   const img = document.getElementById("avatar-img");
@@ -269,6 +301,7 @@ async function loadProfile() {
   document.getElementById("display-name").innerHTML = (profile.og_member ? `<span class="og-name">${escapeHtml(label)}</span>` : (profile.rainbow_name ? `<span class="rainbow-name">${escapeHtml(label)}</span>` : escapeHtml(label))) + (profile.is_dev ? ' <span class="dev-badge">DEV</span>' : "") + (profile.og_member ? ' <span class="og-badge">OG</span>' : "");
   document.getElementById("handle").textContent = "@" + profile.username;
   document.getElementById("bio").textContent = profile.bio || "Hey im new to ClipNow";
+  renderProfileLinks(profile);
   setAvatar(profile.avatar_url, profile.username);
   const header = document.getElementById("profile-header");
   if (profile.is_dev) header.classList.add("profile-dev"); else header.classList.remove("profile-dev");
@@ -284,6 +317,16 @@ async function loadProfile() {
     document.getElementById("edit-display-name").value = profile.display_name || "";
     document.getElementById("edit-username").value = profile.username || "";
     document.getElementById("edit-bio").value = profile.bio || "Hey im new to ClipNow";
+    document.getElementById("edit-youtube").value = profile.youtube_url || "";
+    document.getElementById("edit-x").value = profile.x_url || "";
+    document.getElementById("edit-instagram").value = profile.instagram_url || "";
+    document.getElementById("edit-tiktok").value = profile.tiktok_url || "";
+    document.getElementById("edit-twitch").value = profile.twitch_url || "";
+    document.getElementById("edit-discord").value = profile.discord_url || "";
+    document.getElementById("edit-github").value = profile.github_url || "";
+    document.getElementById("edit-kick").value = profile.kick_url || "";
+    document.getElementById("edit-custom-label").value = profile.custom_link_label || "";
+    document.getElementById("edit-custom").value = profile.custom_link_url || "";
   } else {
     document.getElementById("own-actions").classList.add("hidden");
     document.getElementById("saved-section").classList.add("hidden");
@@ -307,6 +350,16 @@ async function saveProfile() {
   const file = document.getElementById("avatar-input").files[0];
   if (!username || username.length < 3) { errorEl.textContent = "Username must be at least 3 characters"; errorEl.style.display = "block"; return; }
   try {
+    const links = {};
+    for (const key of Object.keys(PROFILE_LINK_RULES)) {
+      const inputId = {youtube_url:"edit-youtube",x_url:"edit-x",instagram_url:"edit-instagram",tiktok_url:"edit-tiktok",twitch_url:"edit-twitch",discord_url:"edit-discord",github_url:"edit-github",kick_url:"edit-kick"}[key];
+      links[key] = validateProfileLink(document.getElementById(inputId).value, PROFILE_LINK_RULES[key]);
+    }
+    links.custom_link_url = validateCustomLink(document.getElementById("edit-custom").value);
+    links.custom_link_label = document.getElementById("edit-custom-label").value.trim();
+    if (!links.custom_link_url) links.custom_link_label = "";
+    if (links.custom_link_url && !links.custom_link_label) links.custom_link_label = "Website";
+
     let avatarUrl = currentProfile?.avatar_url || null;
     if (file) {
       const ext = (file.name.split(".").pop() || "png").toLowerCase();
@@ -320,7 +373,8 @@ async function saveProfile() {
       id:user.id, display_name:displayName || username, username, bio:bio || "Hey im new to ClipNow", avatar_url:avatarUrl,
       storage_used:currentProfile?.storage_used || 0, is_dev:currentProfile?.is_dev === true,
       rainbow_name:currentProfile?.rainbow_name === true, special_theme:currentProfile?.special_theme || null,
-      og_member:currentProfile?.og_member === true
+      og_member:currentProfile?.og_member === true,
+      ...links
     }).select("*").maybeSingle();
     if (error) throw error;
     currentProfile = data || currentProfile;
