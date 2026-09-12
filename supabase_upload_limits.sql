@@ -1,8 +1,8 @@
 -- ClipNow upload limit
 -- Run once in Supabase SQL Editor.
--- Sets the clips storage bucket to 200 MiB per file.
--- 200 MiB = 209715200 bytes.
+-- Supabase Free projects have a 50 MB global file-size limit.
+-- Keep the clips bucket at the same 50 MiB maximum.
 
 update storage.buckets
-set file_size_limit = 209715200
+set file_size_limit = 52428800
 where id = 'clips';
