@@ -7,5 +7,22 @@ async function replies(){if(typeof loadComments!=='function')return;const old=lo
 function commentHtml(c,pm,children){const p=pm[c.user_id]||{},n=escapeHtml(p.display_name||p.username||'user'),v=p.verified?' <span class="verified-badge">VERIFIED</span>':'';let html='<div class="comment"><div class="who">@'+escapeHtml(p.username||'user')+v+'</div><div>'+escapeHtml(c.content)+'</div><button class="btn btn-outline" style="margin-top:8px;padding:5px 9px;font-size:11px" data-reply-id="'+c.id+'">Reply</button>';const kids=children.filter(x=>x.parent_id===c.id);if(kids.length)html+='<div class="comment-replies" style="margin:10px 0 0 18px;display:grid;gap:8px">'+kids.map(k=>'<div class="comment"><div class="who">@'+escapeHtml(pm[k.user_id]?.username||'user')+'</div><div>'+escapeHtml(k.content)+'</div></div>').join('')+'</div>';return html+'</div>'}
 async function replyTo(id){const me=await requireLogin();if(!me)return;const text=prompt('Reply to this comment');if(!text?.trim())return;try{ClipNowModeration.assertTextAllowed(text.trim(),'comment')}catch(e){alert(e.message);return}const {error}=await client.from('comments').insert({clip_id:clip.id,user_id:me.id,parent_id:id,content:text.trim()});if(error){alert(error.message);return}await loadComments()}
 function tags(){if(!clip)return;const d=document.getElementById('description');if(!d||!clip.tags?.length)return;let box=document.getElementById('clip-tags');if(!box){box=document.createElement('div');box.id='clip-tags';box.style.cssText='display:flex;gap:6px;flex-wrap:wrap;margin:-14px 0 20px'}box.innerHTML=clip.tags.slice(0,8).map(t=>'<a href="discover.html?tag='+encodeURIComponent(t)+'" class="tag-chip">#'+escapeHtml(t)+'</a>').join('');d.after(box)}
-window.addEventListener('load',()=>{setTimeout(()=>{reactions();replies();tags()},600)})
+
+// Safe playback improvements: encourage the browser to buffer the clip ahead of time
+// and use the generated thumbnail as the poster while the video stream starts.
+async function setupVideoPlayback(){
+  const video=document.getElementById('video');
+  if(!video||!clip)return;
+  video.preload='auto';
+  video.playsInline=true;
+  video.setAttribute('playsinline','');
+  video.setAttribute('webkit-playsinline','');
+  if(clip.thumbnail_path){
+    try{
+      const poster=await getPublicMediaUrl(clip.thumbnail_path);
+      if(poster)video.poster=poster;
+    }catch(e){console.warn('ClipNow poster:',e)}
+  }
+}
+window.addEventListener('load',()=>{setTimeout(()=>{setupVideoPlayback();reactions();replies();tags()},150)})
 })();
