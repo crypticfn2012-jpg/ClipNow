@@ -153,9 +153,178 @@ async function showFollowersList(userId, type) {
         badge.textContent = "✓";
         name.appendChild(badge);
       } catch (err) {
-        // If the optional verified column has not been created yet, leave the existing profile untouched.
         console.warn("Creator verification unavailable:", err);
       }
     }, 300);
   });
+})();
+
+/* Profile banners: isolated from the existing profile renderer so the current profile UI stays intact. */
+(function setupProfileBanners() {
+  if (!/profile\.html$/i.test(location.pathname)) return;
+
+  const MAX_BANNER_SIZE = 5 * 1024 * 1024;
+
+  function addStyles() {
+    if (document.getElementById("clipnow-banner-styles")) return;
+    const style = document.createElement("style");
+    style.id = "clipnow-banner-styles";
+    style.textContent = `
+      .clipnow-profile-banner{position:relative;width:100%;height:190px;margin:0 0 22px;border-radius:16px;overflow:hidden;border:1px solid #2a2a2a;background:linear-gradient(135deg,#171717,#101010);box-shadow:0 8px 30px rgba(0,0,0,.2)}
+      .clipnow-profile-banner img{width:100%;height:100%;display:block;object-fit:cover}
+      .clipnow-profile-banner::after{content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(180deg,rgba(0,0,0,.02) 35%,rgba(0,0,0,.42) 100%)}
+      .clipnow-banner-empty{height:100%;display:flex;align-items:center;justify-content:center;color:#666;font-size:13px}
+      .clipnow-banner-settings{margin-bottom:16px}
+      .clipnow-banner-preview{width:100%;height:120px;margin-top:10px;border-radius:10px;overflow:hidden;border:1px solid #2b2b2b;background:#111;display:none}
+      .clipnow-banner-preview img{width:100%;height:100%;object-fit:cover;display:block}
+      .clipnow-banner-help{display:block;margin-top:7px;color:#777;font-size:12px;line-height:1.4}
+      .clipnow-banner-remove{margin-top:9px}
+      @media(max-width:600px){.clipnow-profile-banner{height:140px;border-radius:12px}}
+    `;
+    document.head.appendChild(style);
+  }
+
+  function getOrCreateBanner() {
+    let banner = document.getElementById("clipnow-profile-banner");
+    if (banner) return banner;
+    const header = document.getElementById("profile-header");
+    if (!header) return null;
+    banner = document.createElement("div");
+    banner.id = "clipnow-profile-banner";
+    banner.className = "clipnow-profile-banner";
+    banner.innerHTML = `<div class="clipnow-banner-empty">No profile banner</div>`;
+    header.parentNode.insertBefore(banner, header);
+    return banner;
+  }
+
+  function renderBanner(url) {
+    const banner = getOrCreateBanner();
+    if (!banner) return;
+    if (url) {
+      banner.innerHTML = `<img src="${escapeHtml(url)}" alt="Profile banner">`;
+      const img = banner.querySelector("img");
+      img.onerror = () => { banner.innerHTML = `<div class="clipnow-banner-empty">Banner could not be loaded</div>`; };
+    } else {
+      banner.innerHTML = `<div class="clipnow-banner-empty">No profile banner</div>`;
+    }
+  }
+
+  function addEditorControls() {
+    const editMode = document.getElementById("edit-mode");
+    if (!editMode || document.getElementById("clipnow-banner-settings")) return;
+    const section = document.createElement("div");
+    section.id = "clipnow-banner-settings";
+    section.className = "form-group clipnow-banner-settings";
+    section.innerHTML = `
+      <label for="profile-banner-input">Profile Banner</label>
+      <input type="file" id="profile-banner-input" accept="image/*">
+      <span class="clipnow-banner-help">Add a banner image to the top of your profile. Maximum 5 MB.</span>
+      <div id="clipnow-banner-preview" class="clipnow-banner-preview"><img alt="Banner preview"></div>
+      <button type="button" id="remove-profile-banner" class="btn btn-outline clipnow-banner-remove">Remove banner</button>
+    `;
+    const bioGroup = document.getElementById("edit-bio")?.closest(".form-group");
+    const anchor = bioGroup || editMode.querySelector(".row");
+    if (anchor) editMode.insertBefore(section, anchor);
+    else editMode.appendChild(section);
+
+    const input = document.getElementById("profile-banner-input");
+    const preview = document.getElementById("clipnow-banner-preview");
+    const previewImg = preview?.querySelector("img");
+    input?.addEventListener("change", () => {
+      const file = input.files?.[0];
+      if (!file || !preview || !previewImg) return;
+      if (file.size > MAX_BANNER_SIZE) {
+        input.value = "";
+        const errorEl = document.getElementById("edit-error");
+        if (errorEl) { errorEl.textContent = "Banner image must be 5 MB or smaller."; errorEl.style.display = "block"; }
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = () => { previewImg.src = reader.result; preview.style.display = "block"; };
+      reader.readAsDataURL(file);
+    });
+
+    document.getElementById("remove-profile-banner")?.addEventListener("click", () => {
+      input.value = "";
+      input.dataset.remove = "true";
+      if (preview) preview.style.display = "none";
+      const errorEl = document.getElementById("edit-error");
+      if (errorEl) errorEl.style.display = "none";
+    });
+  }
+
+  async function uploadBanner(user, file) {
+    const ext = (file.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "");
+    const path = `${user.id}/banner.${ext || "jpg"}`;
+    const { error } = await client.storage.from("clips").upload(path, file, {
+      upsert: true,
+      contentType: file.type || "image/jpeg"
+    });
+    if (error) throw error;
+    const { data } = client.storage.from("clips").getPublicUrl(path);
+    return `${data.publicUrl}?t=${Date.now()}`;
+  }
+
+  async function removeOldBannerFiles(userId) {
+    const { data } = await client.storage.from("clips").list(userId, { search: "banner", limit: 20 });
+    const paths = (data || []).filter(item => /^banner\.[a-z0-9]+$/i.test(item.name)).map(item => `${userId}/${item.name}`);
+    if (paths.length) await client.storage.from("clips").remove(paths);
+  }
+
+  function wrapSaveProfile() {
+    if (window.__clipNowBannerSaveWrapped || typeof window.saveProfile !== "function") return;
+    window.__clipNowBannerSaveWrapped = true;
+    const originalSaveProfile = window.saveProfile;
+    window.saveProfile = async function () {
+      const input = document.getElementById("profile-banner-input");
+      const file = input?.files?.[0];
+      const remove = input?.dataset.remove === "true";
+      const errorEl = document.getElementById("edit-error");
+      const user = await getCurrentUser();
+      if (!user) return;
+      if (file && file.size > MAX_BANNER_SIZE) {
+        if (errorEl) { errorEl.textContent = "Banner image must be 5 MB or smaller."; errorEl.style.display = "block"; }
+        return;
+      }
+      try {
+        let bannerUrl = currentProfile?.banner_url || null;
+        if (file) {
+          bannerUrl = await uploadBanner(user, file);
+          await client.from("profiles").update({ banner_url: bannerUrl }).eq("id", user.id);
+        } else if (remove) {
+          await removeOldBannerFiles(user.id);
+          bannerUrl = null;
+          await client.from("profiles").update({ banner_url: null }).eq("id", user.id);
+        }
+        const result = await originalSaveProfile();
+        if (result !== undefined && result === null) return result;
+        if (currentProfile) currentProfile.banner_url = bannerUrl;
+        renderBanner(bannerUrl);
+        return result;
+      } catch (err) {
+        if (errorEl) { errorEl.textContent = err.message || "Failed to save profile banner"; errorEl.style.display = "block"; }
+        console.error("Profile banner save:", err);
+      }
+    };
+  }
+
+  async function boot() {
+    addStyles();
+    addEditorControls();
+    let tries = 0;
+    const timer = setInterval(() => {
+      tries += 1;
+      addEditorControls();
+      if (typeof currentProfile !== "undefined" && currentProfile) {
+        clearInterval(timer);
+        renderBanner(currentProfile.banner_url || null);
+        if (viewingOwnProfile) wrapSaveProfile();
+      } else if (tries >= 100) {
+        clearInterval(timer);
+        wrapSaveProfile();
+      }
+    }, 100);
+  }
+
+  window.addEventListener("load", boot);
 })();
