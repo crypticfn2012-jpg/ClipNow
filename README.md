@@ -4,7 +4,7 @@
 
 # ClipNow
 
-### Built for BuildNow.gg.
+### Built for BuildNow.gg
 
 A dedicated clip-sharing platform for the BuildNow.gg community.
 
