@@ -44,6 +44,7 @@
   </div>
 </div>
 <script src="app.js"></script>
+<script src="moderation.js"></script>
 <script>
 let clip=null,myProfile=null,me=null,hasLiked=false;
 function showError(m){const el=document.getElementById("error");el.textContent=m;el.style.display="block";}
@@ -135,8 +136,15 @@ async function loadComments(){
 document.getElementById("comment-btn").onclick=async()=>{
   if(!clip||!me){location.href="login.html";return;}
   const content=document.getElementById("comment-body").value.trim();if(!content)return;
+  try {
+    // Comments stay lenient: ordinary swearing is allowed, but hard/abusive terms are blocked.
+    ClipNowModeration.assertTextAllowed(content,"comment");
+  } catch (err) {
+    showError(err.message || "That comment is not allowed.");
+    return;
+  }
   const{error}=await client.from("comments").insert({clip_id:clip.id,user_id:me.id,content});
-  if(error){alert(error.message);return;}
+  if(error){showError(error.message);return;}
   document.getElementById("comment-body").value="";await loadComments();
 };
 
