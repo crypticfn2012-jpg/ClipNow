@@ -112,7 +112,7 @@ async function getProfileById(id) {
   if (!id) return null;
   const { data } = await client
     .from("profiles")
-    .select("id, username, display_name, avatar_url, is_dev, rainbow_name, special_theme")
+    .select("id, username, display_name, avatar_url, is_dev, verified, rainbow_name, special_theme, og_member, banner_url")
     .eq("id", id)
     .maybeSingle();
   return data || null;
@@ -145,7 +145,7 @@ async function getPublicClips({ limit = 50, order = "created_at" } = {}) {
   if (userIds.length) {
     const { data: profiles } = await client
       .from("profiles")
-      .select("id, username, display_name, avatar_url, is_dev")
+      .select("id, username, display_name, avatar_url, is_dev, verified, rainbow_name, og_member")
       .in("id", userIds);
 
     const map = {};
@@ -283,7 +283,7 @@ function clipCardHtml(clip, username) {
     : (clip.title || "Untitled");
   const vis = clip.visibility && clip.visibility !== "public" ? ` • ${clip.visibility}` : "";
   const rainbowName = clip.profiles?.rainbow_name === true;
-  const devBadge = clip.profiles?.is_dev ? ' <span class="dev-badge">DEV</span>' : "";
+  const devBadge = clip.profiles?.is_dev ? ' <span class="dev-badge">DEV</span>' : "";\n  const verifiedBadge = clip.profiles?.verified ? ' <span class="verified-badge" title="Verified creator">VERIFIED</span>' : "";
   const nameHtml = rainbowName
     ? `<span class="rainbow-name">${escapeHtml(name)}</span>${devBadge}`
     : `${escapeHtml(name)}${devBadge}`;
