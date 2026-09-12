@@ -8,9 +8,8 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
-  <nav class="navbar" id="clipnow-navbar">
+<nav class="navbar" id="clipnow-navbar">
   <a href="index.html" class="logo">Clip<span>Now</span></a>
-
   <div class="nav-center">
     <a href="index.html" id="nav-explore">Explore</a>
     <a href="upload.html" id="nav-upload">Upload</a>
@@ -18,100 +17,97 @@
     <a href="profile.html" id="nav-profile">Profile</a>
     <a href="download.html" id="nav-download">Download</a>
   </div>
-
   <div class="nav-right">
     <a href="login.html" id="nav-login" class="btn btn-primary">Sign in</a>
     <div id="nav-user">
-      <a href="inbox.html" class="inbox-icon" title="Inbox" aria-label="Inbox">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M4 4h16v16H4z"></path>
-          <path d="M4 9h5l2 3h2l2-3h5"></path>
-        </svg>
-      </a>
       <a href="profile.html" id="nav-username" class="nav-username"></a>
       <button type="button" onclick="logout()" class="btn btn-outline">Logout</button>
     </div>
   </div>
 </nav>
-  <div class="container">
-    <h1 class="page-title">Search</h1>
-    <div class="search-box">
-      <input type="text" id="q" placeholder="Search clips, usernames..." autofocus>
-      <button type="button" onclick="doSearch()">Search</button>
-    </div>
-    <div id="results">
-      <p class="empty">Type something to search.</p>
-    </div>
+
+<div class="container">
+  <h1 class="page-title">Search</h1>
+  <div class="search-bar">
+    <input type="text" id="q" placeholder="Search clips or users...">
+    <button id="go">Search</button>
   </div>
+  <h2 class="section-title">Users</h2>
+  <div id="users"></div>
+  <h2 class="section-title">Clips</h2>
+  <div id="clips" class="clip-grid"></div>
+</div>
 
-  <script src="app.js"></script>
-  <script>
-    function safeTerm(q) {
-      return q.replace(/[,%()]/g, " ").trim();
-    }
+<script src="app.js"></script>
+<script>
+async function runSearch() {
+  const q = document.getElementById("q").value.trim();
+  const usersBox = document.getElementById("users");
+  const clipsBox = document.getElementById("clips");
+  if (!q) {
+    usersBox.innerHTML = `<p class="empty">Type a query.</p>`;
+    clipsBox.innerHTML = "";
+    return;
+  }
 
-    async function doSearch() {
-      const q = safeTerm(document.getElementById("q").value);
-      const results = document.getElementById("results");
-      if (!q) {
-        results.innerHTML = `<p class="empty">Type something to search.</p>`;
-        return;
-      }
+  usersBox.innerHTML = `<p class="empty">Loading...</p>`;
+  clipsBox.innerHTML = `<p class="empty">Loading...</p>`;
 
-      results.innerHTML = `<p class="empty">Searching...</p>`;
+  const { data: users } = await client
+    .from("profiles")
+    .select("id, username, display_name, avatar_url, is_dev, rainbow_name")
+    .or(`username.ilike.%${q}%,display_name.ilike.%${q}%`)
+    .limit(20);
 
-      const { data: users } = await client
-        .from("profiles")
-        .select("id, username, display_name, avatar_url, bio")
-        .or(`username.ilike.%${q}%,display_name.ilike.%${q}%`)
-        .limit(10);
+  if (!users?.length) usersBox.innerHTML = `<p class="empty">No users.</p>`;
+  else {
+    usersBox.innerHTML = users.map(u => {
+      const badge = u.is_dev ? ' <span class="dev-badge">DEV</span>' : "";
+      const name = u.rainbow_name
+        ? `<span class="rainbow-name">${escapeHtml(u.display_name || u.username)}</span>`
+        : escapeHtml(u.display_name || u.username);
+      const av = u.avatar_url
+        ? `<img class="avatar-sm" src="${escapeHtml(u.avatar_url)}" alt="">`
+        : `<div class="avatar-sm">${escapeHtml((u.username || "?").charAt(0).toUpperCase())}</div>`;
+      return `<a class="user-card" href="profile.html?user=${encodeURIComponent(u.username)}">${av}<div><div style="font-weight:500">${name}${badge}</div><div style="font-size:13px;color:#888">@${escapeHtml(u.username)}</div></div></a>`;
+    }).join("");
+  }
 
-      const { data: clips } = await client
-        .from("clips")
-        .select("id, title, views, user_id")
-        .eq("visibility", "public")
-        .ilike("title", `%${q}%`)
-        .limit(15);
+  const { data: clips } = await client
+    .from("clips")
+    .select("*")
+    .eq("visibility", "public")
+    .ilike("title", `%${q}%`)
+    .order("created_at", { ascending: false })
+    .limit(40);
 
-      let html = "";
+  const list = clips || [];
+  if (list.length) {
+    const ids = [...new Set(list.map(c => c.user_id).filter(Boolean))];
+    const { data: profiles } = await client
+      .from("profiles")
+      .select("id, username, display_name, avatar_url, is_dev, rainbow_name")
+      .in("id", ids);
+    const map = {};
+    (profiles || []).forEach(p => (map[p.id] = p));
+    list.forEach(c => (c.profiles = map[c.user_id] || null));
+  }
 
-      if (users && users.length) {
-        html += `<div class="section"><h2 class="section-title">Users</h2>`;
-        users.forEach(u => {
-          const avatar = u.avatar_url
-            ? `<img src="${escapeHtml(u.avatar_url)}" class="avatar-sm" alt="">`
-            : `<div class="avatar-sm">${escapeHtml((u.username || "?").charAt(0).toUpperCase())}</div>`;
-          html += `
-            <a href="profile.html?user=${encodeURIComponent(u.username)}" class="user-card">
-              ${avatar}
-              <div>
-                <div style="font-weight:500">${escapeHtml(u.display_name || u.username)}</div>
-                <div style="font-size:13px;color:#888">@${escapeHtml(u.username)}</div>
-              </div>
-            </a>`;
-        });
-        html += `</div>`;
-      }
+  if (!list.length) clipsBox.innerHTML = `<p class="empty">No clips.</p>`;
+  else {
+    clipsBox.innerHTML = list.map(c => clipCardHtml(c)).join("");
+    if (typeof hydrateThumbnails === "function") await hydrateThumbnails(clipsBox);
+  }
+}
 
-      if (clips && clips.length) {
-        html += `<div class="section"><h2 class="section-title">Clips</h2><div class="clip-grid">`;
-        html += clips.map(c => clipCardHtml(c)).join("");
-        html += `</div></div>`;
-      }
+document.getElementById("go").onclick = runSearch;
+document.getElementById("q").addEventListener("keydown", e => { if (e.key === "Enter") runSearch(); });
 
-      if (!html) html = `<p class="empty">No results found for "${escapeHtml(q)}"</p>`;
-      results.innerHTML = html;
-    }
-
-    document.getElementById("q").addEventListener("keydown", (e) => {
-      if (e.key === "Enter") doSearch();
-    });
-
-    const initial = new URLSearchParams(window.location.search).get("q");
-    if (initial) {
-      document.getElementById("q").value = initial;
-      doSearch();
-    }
-  </script>
+const preset = new URLSearchParams(location.search).get("q");
+if (preset) {
+  document.getElementById("q").value = preset;
+  runSearch();
+}
+</script>
 </body>
 </html>
