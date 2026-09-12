@@ -130,14 +130,12 @@ document.getElementById("upload-btn").onclick = async () => {
   if (!user) return;
 
   btn.disabled = true;
-  btn.textContent = "Checking media...";
+  btn.textContent = "Uploading...";
   progress.style.display = "block";
   fill.style.width = "8%";
 
   try {
-    // Inspect the thumbnail and three representative video frames before anything is stored.
-    await ClipNowModeration.moderateMediaFiles(file, customThumb);
-
+    // Media moderation is temporarily disabled. Text moderation remains active.
     const profile = await getProfile();
     if (!profile) throw new Error("Profile not loaded.");
     const used = profile.storage_used || 0;
@@ -147,7 +145,6 @@ document.getElementById("upload-btn").onclick = async () => {
     const filePath = user.id + "/" + Date.now() + "." + ext;
 
     fill.style.width = "20%";
-    btn.textContent = "Uploading...";
     const { error: upErr } = await client.storage.from("clips").upload(filePath, file, {
       contentType: file.type || (ext === "webm" ? "video/webm" : "video/mp4"),
       upsert: false
