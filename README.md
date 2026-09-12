@@ -8,7 +8,7 @@
 
 A dedicated clip-sharing platform for the BuildNow.gg community.
 
-[Visit ClipNow](https://crypticfn2012-jpg.github.io/ClipNow) · [Report a problem](https://roncool.cc.cd/security)
+[Visit ClipNow](https://crypticfn2012-jpg.github.io/ClipNow) ·
 
 </div>
 
