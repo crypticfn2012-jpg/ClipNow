@@ -54,5 +54,6 @@ document.getElementById("upload-btn").onclick=async()=>{
  fill.style.width="78%";const clip=await insertClip({user_id:user.id,title,description:description||null,file_path:filePath,file_size:file.size,visibility,views:0,likes_count:0,comments_count:0,thumbnail_path,published_at:visibility==="public"?new Date().toISOString():null});await client.from("profiles").update({storage_used:used+file.size}).eq("id",user.id);fill.style.width="100%";successEl.textContent=thumbnail_path?"Upload complete!":"Upload complete! Thumbnail could not be generated.";successEl.style.display="block";note.style.display="none";setTimeout(()=>{location.href="clip.html?id="+clip.id;},250);}catch(err){console.error(err);errorEl.textContent=err.message||"Upload failed";errorEl.style.display="block";btn.disabled=false;btn.textContent="Upload Clip";progress.style.display="none";}
 };
 </script>
+<script src="upload_features.js"></script>
 </body>
 </html>
