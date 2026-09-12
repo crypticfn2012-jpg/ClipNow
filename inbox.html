@@ -48,5 +48,6 @@ async function markVisibleRead(rows){const unreadIds=rows.filter(n=>!n.read_at).
 document.getElementById("read-all").onclick=async()=>{if(!me)return;const {error}=await client.from("notifications").update({read_at:new Date().toISOString()}).or(`user_id.eq.${me.id},recipient_id.eq.${me.id}`).is("read_at",null);if(error){alert(error.message);return;}await loadInbox();};
 loadInbox();
 </script>
+<script src="inbox_features.js"></script>
 </body>
 </html>
