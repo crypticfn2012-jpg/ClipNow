@@ -170,16 +170,15 @@ async function showFollowersList(userId, type) {
     const style = document.createElement("style");
     style.id = "clipnow-banner-styles";
     style.textContent = `
-      .clipnow-profile-banner{position:relative;width:100%;height:190px;margin:0 0 22px;border-radius:16px;overflow:hidden;border:1px solid #2a2a2a;background:linear-gradient(135deg,#171717,#101010);box-shadow:0 8px 30px rgba(0,0,0,.2)}
-      .clipnow-profile-banner img{width:100%;height:100%;display:block;object-fit:cover}
-      .clipnow-profile-banner::after{content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(180deg,rgba(0,0,0,.02) 35%,rgba(0,0,0,.42) 100%)}
-      .clipnow-banner-empty{height:100%;display:flex;align-items:center;justify-content:center;color:#666;font-size:13px}
+      .clipnow-profile-banner{position:relative;width:100%;height:190px;margin:0 0 22px;border-radius:16px;overflow:hidden}
+      .clipnow-profile-banner img{width:100%;height:100%;display:block;object-fit:cover;border-radius:16px}
+      .clipnow-profile-banner::after{content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(180deg,rgba(0,0,0,.02) 35%,rgba(0,0,0,.42) 100%);border-radius:16px}
       .clipnow-banner-settings{margin-bottom:16px}
       .clipnow-banner-preview{width:100%;height:120px;margin-top:10px;border-radius:10px;overflow:hidden;border:1px solid #2b2b2b;background:#111;display:none}
       .clipnow-banner-preview img{width:100%;height:100%;object-fit:cover;display:block}
       .clipnow-banner-help{display:block;margin-top:7px;color:#777;font-size:12px;line-height:1.4}
       .clipnow-banner-remove{margin-top:9px}
-      @media(max-width:600px){.clipnow-profile-banner{height:140px;border-radius:12px}}
+      @media(max-width:600px){.clipnow-profile-banner{height:140px;border-radius:12px}.clipnow-profile-banner img,.clipnow-profile-banner::after{border-radius:12px}}
     `;
     document.head.appendChild(style);
   }
@@ -192,21 +191,21 @@ async function showFollowersList(userId, type) {
     banner = document.createElement("div");
     banner.id = "clipnow-profile-banner";
     banner.className = "clipnow-profile-banner";
-    banner.innerHTML = `<div class="clipnow-banner-empty">No profile banner</div>`;
     header.parentNode.insertBefore(banner, header);
     return banner;
   }
 
   function renderBanner(url) {
-    const banner = getOrCreateBanner();
-    if (!banner) return;
-    if (url) {
-      banner.innerHTML = `<img src="${escapeHtml(url)}" alt="Profile banner">`;
-      const img = banner.querySelector("img");
-      img.onerror = () => { banner.innerHTML = `<div class="clipnow-banner-empty">Banner could not be loaded</div>`; };
-    } else {
-      banner.innerHTML = `<div class="clipnow-banner-empty">No profile banner</div>`;
+    const banner = document.getElementById("clipnow-profile-banner");
+    if (!url) {
+      if (banner) banner.remove();
+      return;
     }
+    const target = banner || getOrCreateBanner();
+    if (!target) return;
+    target.innerHTML = `<img src="${escapeHtml(url)}" alt="Profile banner">`;
+    const img = target.querySelector("img");
+    img.onerror = () => target.remove();
   }
 
   function addEditorControls() {
@@ -239,6 +238,7 @@ async function showFollowersList(userId, type) {
         if (errorEl) { errorEl.textContent = "Banner image must be 5 MB or smaller."; errorEl.style.display = "block"; }
         return;
       }
+      input.dataset.remove = "false";
       const reader = new FileReader();
       reader.onload = () => { previewImg.src = reader.result; preview.style.display = "block"; };
       reader.readAsDataURL(file);
