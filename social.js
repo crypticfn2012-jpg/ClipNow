@@ -129,3 +129,38 @@ async function showFollowersList(userId, type) {
     }
   });
 })();
+
+/* Creator verification: display-only. The verified flag is controlled in Supabase, not by users. */
+(function setupCreatorVerification() {
+  if (!/profile\.html$/i.test(location.pathname)) return;
+
+  function addStyles() {
+    if (document.getElementById("clipnow-verification-styles")) return;
+    const style = document.createElement("style");
+    style.id = "clipnow-verification-styles";
+    style.textContent = `
+      .clipnow-verified{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;margin-left:7px;border-radius:50%;background:#22c55e;color:#07140b;font-size:11px;font-weight:900;vertical-align:middle;box-shadow:0 0 10px rgba(34,197,94,.22)}
+    `;
+    document.head.appendChild(style);
+  }
+
+  window.addEventListener("load", () => {
+    setTimeout(() => {
+      try {
+        const profile = window.currentProfile;
+        if (!profile || profile.verified !== true) return;
+        const name = document.getElementById("display-name");
+        if (!name || name.querySelector(".clipnow-verified")) return;
+        addStyles();
+        const badge = document.createElement("span");
+        badge.className = "clipnow-verified";
+        badge.title = "Verified creator";
+        badge.setAttribute("aria-label", "Verified creator");
+        badge.textContent = "✓";
+        name.appendChild(badge);
+      } catch (err) {
+        console.error("Creator verification:", err);
+      }
+    }, 250);
+  });
+})();
