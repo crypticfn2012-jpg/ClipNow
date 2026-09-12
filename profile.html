@@ -3,14 +3,26 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Search - ClipNow</title>
+  <title>Profile - ClipNow</title>
   <link rel="stylesheet" href="style.css">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    .profile-header{display:flex;gap:24px;align-items:flex-start;margin-bottom:32px}
+    .avatar,.avatar-placeholder{width:96px;height:96px;border-radius:50%;background:#222;object-fit:cover;border:2px solid #333;flex-shrink:0}
+    .avatar-placeholder{display:flex;align-items:center;justify-content:center;font-size:32px;color:#555;font-weight:600}
+    .profile-info h1{font-size:24px;margin-bottom:4px}
+    .handle{color:#888;font-size:14px;margin-bottom:10px}
+    .bio{color:#ccc;font-size:14px;line-height:1.5;margin-bottom:12px;max-width:420px;white-space:pre-wrap}
+    .stats{font-size:13px;color:#888;margin-bottom:14px}
+    .card{background:#181818;border-radius:12px;padding:22px;margin-bottom:20px;max-width:480px}
+    .card h2{font-size:16px;margin-bottom:16px}
+    .row{display:flex;gap:10px;margin-top:8px;flex-wrap:wrap}
+    .section-title{font-size:16px;font-weight:600;margin:28px 0 14px;color:#ddd}
+  </style>
 </head>
 <body>
-  <nav class="navbar" id="clipnow-navbar">
+<nav class="navbar" id="clipnow-navbar">
   <a href="index.html" class="logo">Clip<span>Now</span></a>
-
   <div class="nav-center">
     <a href="index.html" id="nav-explore">Explore</a>
     <a href="upload.html" id="nav-upload">Upload</a>
@@ -18,100 +30,169 @@
     <a href="profile.html" id="nav-profile">Profile</a>
     <a href="download.html" id="nav-download">Download</a>
   </div>
-
   <div class="nav-right">
     <a href="login.html" id="nav-login" class="btn btn-primary">Sign in</a>
     <div id="nav-user">
-      <a href="inbox.html" class="inbox-icon" title="Inbox" aria-label="Inbox">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M4 4h16v16H4z"></path>
-          <path d="M4 9h5l2 3h2l2-3h5"></path>
-        </svg>
-      </a>
       <a href="profile.html" id="nav-username" class="nav-username"></a>
       <button type="button" onclick="logout()" class="btn btn-outline">Logout</button>
     </div>
   </div>
 </nav>
-  <div class="container">
-    <h1 class="page-title">Search</h1>
-    <div class="search-box">
-      <input type="text" id="q" placeholder="Search clips, usernames..." autofocus>
-      <button type="button" onclick="doSearch()">Search</button>
+
+<div class="container">
+  <div id="view-mode">
+    <div class="profile-header" id="profile-header">
+      <div id="avatar-area">
+        <div class="avatar-placeholder" id="avatar-placeholder">?</div>
+        <img id="avatar-img" class="avatar hidden" alt="Avatar">
+      </div>
+      <div class="profile-info">
+        <h1 id="display-name">Loading...</h1>
+        <div class="handle" id="handle"></div>
+        <div class="bio" id="bio"></div>
+        <div class="stats" id="profile-stats"></div>
+        <div id="own-actions" class="hidden">
+          <button class="btn btn-green" onclick="showEditor()">Edit Profile</button>
+          <a href="upload.html" class="btn btn-outline">Upload clip</a>
+        </div>
+      </div>
     </div>
-    <div id="results">
-      <p class="empty">Type something to search.</p>
+    <div id="saved-section" class="hidden">
+      <div class="section-title">Saved Clips</div>
+      <div id="saved-clips" class="clip-grid"></div>
+    </div>
+    <div id="published-section">
+      <div class="section-title" id="published-title">Published Clips</div>
+      <div id="published-clips" class="clip-grid"></div>
     </div>
   </div>
 
-  <script src="app.js"></script>
-  <script>
-    function safeTerm(q) {
-      return q.replace(/[,%()]/g, " ").trim();
+  <div id="edit-mode" class="card hidden">
+    <h2>Edit Profile</h2>
+    <div id="edit-error" class="error"></div>
+    <div id="edit-success" class="success"></div>
+    <div class="form-group"><label>Profile Picture</label><input type="file" id="avatar-input" accept="image/*"></div>
+    <div class="form-group"><label>Display Name</label><input type="text" id="edit-display-name"></div>
+    <div class="form-group"><label>Username</label><input type="text" id="edit-username"></div>
+    <div class="form-group"><label>Bio</label><textarea id="edit-bio"></textarea></div>
+    <div class="row">
+      <button class="btn btn-green" onclick="saveProfile()">Save Changes</button>
+      <button class="btn btn-outline" onclick="hideEditor()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+<script>
+let currentProfile=null,viewingOwnProfile=true;
+
+function setAvatar(url,username){
+  const img=document.getElementById("avatar-img"),ph=document.getElementById("avatar-placeholder");
+  if(url){img.src=url;img.classList.remove("hidden");ph.classList.add("hidden");img.onerror=()=>{img.classList.add("hidden");ph.classList.remove("hidden");ph.textContent=(username||"?").charAt(0).toUpperCase();};}
+  else{img.classList.add("hidden");ph.classList.remove("hidden");ph.textContent=(username||"?").charAt(0).toUpperCase();}
+}
+
+async function loadPublishedClips(userId,onlyPublic,username){
+  let q=client.from("clips").select("id,title,views,visibility,user_id,created_at").eq("user_id",userId).order("created_at",{ascending:false});
+  if(onlyPublic)q=q.eq("visibility","public");
+  const{data,error}=await q;
+  const box=document.getElementById("published-clips");
+  if(error){box.innerHTML=`<p class="empty">${escapeHtml(error.message)}</p>`;return;}
+  if(!data?.length){box.innerHTML=`<p class="empty">No clips yet.</p>`;return;}
+  data.forEach(c=>{c.profiles={username,is_dev:currentProfile?.is_dev,rainbow_name:currentProfile?.rainbow_name};});
+  box.innerHTML=data.map(c=>clipCardHtml(c,username)).join("");
+}
+
+async function loadSavedClips(userId){
+  const box=document.getElementById("saved-clips"),section=document.getElementById("saved-section");
+  const{data,error}=await client.from("saved_clips").select("clip_id").eq("user_id",userId).order("created_at",{ascending:false});
+  if(error){section.classList.add("hidden");return;}
+  section.classList.remove("hidden");
+  if(!data?.length){box.innerHTML=`<p class="empty">No saved clips.</p>`;return;}
+  const ids=data.map(r=>r.clip_id).filter(Boolean);
+  const{data:clips}=await client.from("clips").select("id,title,views,visibility,user_id").in("id",ids);
+  box.innerHTML=(clips||[]).length?clips.map(c=>clipCardHtml(c)).join(""):`<p class="empty">No saved clips.</p>`;
+}
+
+async function loadProfile(){
+  document.body.classList.remove("theme-galaxy");
+  const me=await getCurrentUser();
+  const usernameParam=new URLSearchParams(location.search).get("user");
+  let profile=null;
+  if(usernameParam){
+    const{data}=await client.from("profiles").select("*").eq("username",usernameParam.toLowerCase()).maybeSingle();
+    profile=data;viewingOwnProfile=!!(me&&data&&me.id===data.id);
+  }else{
+    if(!me){location.href="login.html";return;}
+    profile=await getProfile();viewingOwnProfile=true;
+  }
+  currentProfile=profile;
+  if(!profile){
+    document.getElementById("display-name").textContent="User not found";
+    document.getElementById("handle").textContent="";
+    document.getElementById("bio").textContent="";
+    document.getElementById("published-clips").innerHTML="";
+    return;
+  }
+  if(profile.special_theme==="galaxy")document.body.classList.add("theme-galaxy");
+  const label=profile.display_name||profile.username;
+  document.getElementById("display-name").innerHTML=
+    (profile.rainbow_name?`<span class="rainbow-name">${escapeHtml(label)}</span>`:escapeHtml(label))+
+    (profile.is_dev?' <span class="dev-badge">DEV</span>':"");
+  document.getElementById("handle").textContent="@"+profile.username;
+  document.getElementById("bio").textContent=profile.bio||"Hey im new to ClipNow";
+  setAvatar(profile.avatar_url,profile.username);
+  if(viewingOwnProfile){
+    document.getElementById("own-actions").classList.remove("hidden");
+    document.getElementById("profile-stats").textContent=`Storage: ${formatBytes(profile.storage_used||0)} / 5 GB`;
+    document.getElementById("published-title").textContent="Your Clips";
+    await loadSavedClips(profile.id);
+    await loadPublishedClips(profile.id,false,profile.username);
+    document.getElementById("edit-display-name").value=profile.display_name||"";
+    document.getElementById("edit-username").value=profile.username||"";
+    document.getElementById("edit-bio").value=profile.bio||"Hey im new to ClipNow";
+  }else{
+    document.getElementById("own-actions").classList.add("hidden");
+    document.getElementById("saved-section").classList.add("hidden");
+    document.getElementById("profile-stats").textContent=profile.is_dev?"Developer profile":"Public profile";
+    document.getElementById("published-title").textContent="Public Clips";
+    await loadPublishedClips(profile.id,true,profile.username);
+  }
+}
+function showEditor(){document.getElementById("view-mode").classList.add("hidden");document.getElementById("edit-mode").classList.remove("hidden");}
+function hideEditor(){document.getElementById("edit-mode").classList.add("hidden");document.getElementById("view-mode").classList.remove("hidden");}
+async function saveProfile(){
+  const errorEl=document.getElementById("edit-error"),successEl=document.getElementById("edit-success");
+  errorEl.style.display="none";successEl.style.display="none";
+  const user=await getCurrentUser();if(!user)return;
+  const displayName=document.getElementById("edit-display-name").value.trim();
+  const username=sanitizeUsername(document.getElementById("edit-username").value);
+  const bio=document.getElementById("edit-bio").value.trim();
+  const file=document.getElementById("avatar-input").files[0];
+  if(!username||username.length<3){errorEl.textContent="Username must be at least 3 characters";errorEl.style.display="block";return;}
+  try{
+    let avatarUrl=currentProfile?.avatar_url||null;
+    if(file){
+      const ext=(file.name.split(".").pop()||"png").toLowerCase();
+      const path=`${user.id}/avatar.${ext}`;
+      const{error:uploadError}=await client.storage.from("clips").upload(path,file,{upsert:true,contentType:file.type||"image/png"});
+      if(uploadError)throw uploadError;
+      const{data:urlData}=client.storage.from("clips").getPublicUrl(path);
+      avatarUrl=urlData.publicUrl+"?t="+Date.now();
     }
-
-    async function doSearch() {
-      const q = safeTerm(document.getElementById("q").value);
-      const results = document.getElementById("results");
-      if (!q) {
-        results.innerHTML = `<p class="empty">Type something to search.</p>`;
-        return;
-      }
-
-      results.innerHTML = `<p class="empty">Searching...</p>`;
-
-      const { data: users } = await client
-        .from("profiles")
-        .select("id, username, display_name, avatar_url, bio")
-        .or(`username.ilike.%${q}%,display_name.ilike.%${q}%`)
-        .limit(10);
-
-      const { data: clips } = await client
-        .from("clips")
-        .select("id, title, views, user_id")
-        .eq("visibility", "public")
-        .ilike("title", `%${q}%`)
-        .limit(15);
-
-      let html = "";
-
-      if (users && users.length) {
-        html += `<div class="section"><h2 class="section-title">Users</h2>`;
-        users.forEach(u => {
-          const avatar = u.avatar_url
-            ? `<img src="${escapeHtml(u.avatar_url)}" class="avatar-sm" alt="">`
-            : `<div class="avatar-sm">${escapeHtml((u.username || "?").charAt(0).toUpperCase())}</div>`;
-          html += `
-            <a href="profile.html?user=${encodeURIComponent(u.username)}" class="user-card">
-              ${avatar}
-              <div>
-                <div style="font-weight:500">${escapeHtml(u.display_name || u.username)}</div>
-                <div style="font-size:13px;color:#888">@${escapeHtml(u.username)}</div>
-              </div>
-            </a>`;
-        });
-        html += `</div>`;
-      }
-
-      if (clips && clips.length) {
-        html += `<div class="section"><h2 class="section-title">Clips</h2><div class="clip-grid">`;
-        html += clips.map(c => clipCardHtml(c)).join("");
-        html += `</div></div>`;
-      }
-
-      if (!html) html = `<p class="empty">No results found for "${escapeHtml(q)}"</p>`;
-      results.innerHTML = html;
-    }
-
-    document.getElementById("q").addEventListener("keydown", (e) => {
-      if (e.key === "Enter") doSearch();
-    });
-
-    const initial = new URLSearchParams(window.location.search).get("q");
-    if (initial) {
-      document.getElementById("q").value = initial;
-      doSearch();
-    }
-  </script>
+    const{data,error}=await client.from("profiles").upsert({
+      id:user.id,display_name:displayName||username,username,bio:bio||"Hey im new to ClipNow",
+      avatar_url:avatarUrl,storage_used:currentProfile?.storage_used||0,
+      is_dev:currentProfile?.is_dev===true,rainbow_name:currentProfile?.rainbow_name===true,
+      special_theme:currentProfile?.special_theme||null
+    }).select("*").maybeSingle();
+    if(error)throw error;
+    currentProfile=data||currentProfile;
+    successEl.textContent="Profile saved!";successEl.style.display="block";
+    setTimeout(()=>{hideEditor();loadProfile();updateNavbar();},500);
+  }catch(err){errorEl.textContent=err.message||"Failed to save";errorEl.style.display="block";}
+}
+loadProfile();
+</script>
 </body>
 </html>
