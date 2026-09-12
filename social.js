@@ -24,8 +24,7 @@ async function toggleFollow(userId, button) {
   try {
     const following = await isFollowing(userId);
     if (following) {
-      const { error } = await client.from("follows").delete()
-        .eq("follower_id", me.id).eq("following_id", userId);
+      const { error } = await client.from("follows").delete().eq("follower_id", me.id).eq("following_id", userId);
       if (error) throw error;
     } else {
       const { error } = await client.from("follows").insert({ follower_id: me.id, following_id: userId });
@@ -55,16 +54,11 @@ async function refreshSearchFollowButtons() {
 async function loadFollowersList(userId, type) {
   const filterColumn = type === "following" ? "follower_id" : "following_id";
   const idColumn = type === "following" ? "following_id" : "follower_id";
-  const { data: rows, error } = await client.from("follows")
-    .select("follower_id, following_id")
-    .eq(filterColumn, userId)
-    .order("created_at", { ascending: false });
+  const { data: rows, error } = await client.from("follows").select("follower_id, following_id").eq(filterColumn, userId).order("created_at", { ascending: false });
   if (error) throw error;
   const ids = (rows || []).map(row => row[idColumn]).filter(Boolean);
   if (!ids.length) return [];
-  const { data: profiles, error: profileError } = await client.from("profiles")
-    .select("id, username, display_name, avatar_url, is_dev, rainbow_name")
-    .in("id", ids);
+  const { data: profiles, error: profileError } = await client.from("profiles").select("id, username, display_name, avatar_url, is_dev, rainbow_name").in("id", ids);
   if (profileError) throw profileError;
   const map = Object.fromEntries((profiles || []).map(p => [p.id, p]));
   return ids.map(id => map[id]).filter(Boolean);
@@ -92,7 +86,6 @@ async function showFollowersList(userId, type) {
 /* Profile moderation is attached here so the existing public profile UI stays unchanged. */
 (function setupProfileModeration() {
   if (!/profile\.html$/i.test(location.pathname)) return;
-
   function loadModerationScript() {
     return new Promise((resolve, reject) => {
       if (window.ClipNowModeration) return resolve();
@@ -103,7 +96,6 @@ async function showFollowersList(userId, type) {
       document.head.appendChild(script);
     });
   }
-
   window.addEventListener("load", async () => {
     try {
       await loadModerationScript();
@@ -116,39 +108,41 @@ async function showFollowersList(userId, type) {
           ClipNowModeration.assertTextAllowed(document.getElementById("edit-display-name")?.value || "", "username");
           ClipNowModeration.assertTextAllowed(document.getElementById("edit-bio")?.value || "", "profile");
         } catch (err) {
-          if (errorEl) {
-            errorEl.textContent = err.message || "That profile text is not allowed.";
-            errorEl.style.display = "block";
-          }
+          if (errorEl) { errorEl.textContent = err.message || "That profile text is not allowed."; errorEl.style.display = "block"; }
           return;
         }
         return originalSaveProfile();
       };
-    } catch (err) {
-      console.error("Profile moderation setup:", err);
-    }
+    } catch (err) { console.error("Profile moderation setup:", err); }
   });
 })();
 
 /* Creator verification: display-only. The verified flag is controlled in Supabase, not by users. */
 (function setupCreatorVerification() {
   if (!/profile\.html$/i.test(location.pathname)) return;
-
   function addStyles() {
     if (document.getElementById("clipnow-verification-styles")) return;
     const style = document.createElement("style");
     style.id = "clipnow-verification-styles";
-    style.textContent = `
-      .clipnow-verified{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;margin-left:7px;border-radius:50%;background:#22c55e;color:#07140b;font-size:11px;font-weight:900;vertical-align:middle;box-shadow:0 0 10px rgba(34,197,94,.22)}
-    `;
+    style.textContent = `.clipnow-verified{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;margin-left:7px;border-radius:50%;background:#22c55e;color:#07140b;font-size:11px;font-weight:900;vertical-align:middle;box-shadow:0 0 10px rgba(34,197,94,.22)}`;
     document.head.appendChild(style);
   }
-
-  window.addEventListener("load", () => {
-    setTimeout(() => {
+  window.addEventListener("load", async () => {
+    setTimeout(async () => {
       try {
-        const profile = window.currentProfile;
-        if (!profile || profile.verified !== true) return;
+        const username = new URLSearchParams(location.search).get("user");
+        let profile = null;
+        if (username) {
+          const result = await client.from("profiles").select("verified").eq("username", username.toLowerCase()).maybeSingle();
+          profile = result.data;
+        } else {
+          const me = await getCurrentUser();
+          if (me) {
+            const result = await client.from("profiles").select("verified").eq("id", me.id).maybeSingle();
+            profile = result.data;
+          }
+        }
+        if (!profile?.verified) return;
         const name = document.getElementById("display-name");
         if (!name || name.querySelector(".clipnow-verified")) return;
         addStyles();
@@ -159,8 +153,9 @@ async function showFollowersList(userId, type) {
         badge.textContent = "✓";
         name.appendChild(badge);
       } catch (err) {
-        console.error("Creator verification:", err);
+        // If the optional verified column has not been created yet, leave the existing profile untouched.
+        console.warn("Creator verification unavailable:", err);
       }
-    }, 250);
+    }, 300);
   });
 })();
