@@ -10,7 +10,6 @@
 <body>
  <nav class="navbar" id="clipnow-navbar">
   <a href="index.html" class="logo">Clip<span>Now</span></a>
-
   <div class="nav-center">
     <a href="index.html" id="nav-explore">Explore</a>
     <a href="upload.html" id="nav-upload">Upload</a>
@@ -18,7 +17,6 @@
     <a href="profile.html" id="nav-profile">Profile</a>
     <a href="download.html" id="nav-download">Download</a>
   </div>
-
   <div class="nav-right">
     <a href="login.html" id="nav-login" class="btn btn-primary">Sign in</a>
     <div id="nav-user">
@@ -52,6 +50,7 @@
   </div>
 
   <script src="app.js"></script>
+  <script src="moderation.js"></script>
   <script>
     document.getElementById("form").addEventListener("submit", async (e) => {
       e.preventDefault();
@@ -68,6 +67,8 @@
       const password = document.getElementById("password").value;
 
       try {
+        ClipNowModeration.assertTextAllowed(username, "username");
+
         const { data, error } = await client.auth.signUp({
           email,
           password,
@@ -76,13 +77,14 @@
         if (error) throw error;
 
         if (data.user) {
-          await client.from("profiles").upsert({
+          const { error: profileError } = await client.from("profiles").upsert({
             id: data.user.id,
             username,
             display_name: username,
             bio: "Hey im new to ClipNow",
             storage_used: 0
           });
+          if (profileError) throw profileError;
         }
 
         if (data.session) {
