@@ -112,12 +112,11 @@ async function getProfileById(id) {
   if (!id) return null;
   const { data } = await client
     .from("profiles")
-    .select("id, username, display_name, avatar_url, is_dev")
+    .select("id, username, display_name, avatar_url, is_dev, rainbow_name, special_theme")
     .eq("id", id)
     .maybeSingle();
   return data || null;
 }
-
 async function isDev() {
   const profile = await getProfile();
   return !!(profile && profile.is_dev === true);
@@ -182,20 +181,27 @@ async function getClipPlaybackUrl(filePath) {
 
 function clipCardHtml(clip, username) {
   const name = username || clip.profiles?.username || "Unknown";
-  const rainbow = String(clip.title || "").startsWith("[[RAINBOW]]");
-  const cleanTitle = rainbow ? String(clip.title).replace(/^\[\[RAINBOW\]\]/, "").trim() : (clip.title || "Untitled");
+  const rainbowTitle = String(clip.title || "").startsWith("[[RAINBOW]]");
+  const cleanTitle = rainbowTitle
+    ? String(clip.title).replace(/^\[\[RAINBOW\]\]\s*/, "").trim()
+    : (clip.title || "Untitled");
   const vis = clip.visibility && clip.visibility !== "public" ? ` • ${clip.visibility}` : "";
+  const rainbowName = clip.profiles?.rainbow_name === true;
+  const devBadge = clip.profiles?.is_dev ? ' <span class="dev-badge">DEV</span>' : "";
+  const nameHtml = rainbowName
+    ? `<span class="rainbow-name">${escapeHtml(name)}</span>${devBadge}`
+    : `${escapeHtml(name)}${devBadge}`;
 
   return `
     <a href="clip.html?id=${encodeURIComponent(clip.id)}" class="clip-card">
-      <div class="clip-thumb">
-        <span class="play-icon">▶</span>
-      </div>
+      <div class="clip-thumb"><span class="play-icon">▶</span></div>
       <div class="clip-info">
-        <div class="clip-title">${rainbow ? `<span class="rainbow-title">${escapeHtml(cleanTitle)}</span>` : escapeHtml(cleanTitle)}</div>
-        <div class="clip-meta">
-          ${escapeHtml(name)} • ${Number(clip.views) || 0} views${escapeHtml(vis)}
-        </div>
+        <div class="clip-title">${
+          rainbowTitle
+            ? `<span class="rainbow-title">${escapeHtml(cleanTitle)}</span>`
+            : escapeHtml(cleanTitle)
+        }</div>
+        <div class="clip-meta">${nameHtml} • ${Number(clip.views) || 0} views${escapeHtml(vis)}</div>
       </div>
     </a>
   `;
