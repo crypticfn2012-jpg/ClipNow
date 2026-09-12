@@ -199,6 +199,60 @@ body.theme-galaxy .clip-card {
   border: 1px solid rgba(139,92,246,0.2);
 }
 
+/* OG profiles: premium gold animated styling. */
+.og-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-left: 7px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: .7px;
+  color: #2b1a00;
+  background: linear-gradient(110deg,#8a5a00,#ffd86b,#fff1a8,#d99b18,#fff1a8,#8a5a00);
+  background-size: 300% 100%;
+  animation: ogGold 2.8s linear infinite;
+  box-shadow: 0 0 14px rgba(255,193,7,.25);
+  vertical-align: middle;
+}
+.og-name {
+  background: linear-gradient(90deg,#fff0a6,#d89b20,#fff7c7,#b97800,#fff0a6);
+  background-size: 300% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent !important;
+  animation: ogGold 3s linear infinite;
+  font-weight: 800;
+}
+@keyframes ogGold { to { background-position: 300% 0; } }
+.og-profile-header {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(255,205,70,.55);
+  border-radius: 16px;
+  padding: 20px;
+  background:
+    radial-gradient(circle at 12% 10%, rgba(255,225,120,.16), transparent 30%),
+    radial-gradient(circle at 88% 90%, rgba(180,105,0,.14), transparent 32%),
+    linear-gradient(135deg,rgba(55,37,8,.82),rgba(18,15,8,.88));
+  box-shadow: 0 0 38px rgba(245,183,48,.16), inset 0 0 35px rgba(255,220,110,.035);
+}
+.og-profile-header::after {
+  content:"";
+  position:absolute;
+  inset:-80%;
+  background:linear-gradient(115deg,transparent 42%,rgba(255,240,170,.09) 50%,transparent 58%);
+  transform:translateX(-35%);
+  animation:ogSheen 5s linear infinite;
+  pointer-events:none;
+}
+.og-profile-header > * { position:relative; z-index:1; }
+.og-profile-header .avatar, .og-profile-header .avatar-placeholder { border-color:#e6b83f; box-shadow:0 0 18px rgba(255,200,70,.22); }
+.og-profile .clip-card { border:1px solid rgba(255,202,75,.16); }
+@keyframes ogSheen { to { transform:translateX(35%); } }
+
 .hidden { display: none !important; }
 .player { width: 100%; max-width: 900px; background: #000; border-radius: 12px; overflow: hidden; margin-bottom: 18px; }
 .player video { width: 100%; display: block; max-height: 70vh; background: #000; }
