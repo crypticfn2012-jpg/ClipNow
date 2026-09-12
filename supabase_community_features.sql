@@ -19,9 +19,10 @@ create table if not exists public.clip_reactions (
   unique (clip_id, user_id)
 );
 alter table public.clip_reactions enable row level security;
-grant select, insert, update, delete on public.clip_reactions to authenticated;
+grant select on public.clip_reactions to anon, authenticated;
+grant insert, update, delete on public.clip_reactions to authenticated;
 drop policy if exists "Public can read reactions" on public.clip_reactions;
-create policy "Public can read reactions" on public.clip_reactions for select to authenticated using (true);
+create policy "Public can read reactions" on public.clip_reactions for select to anon, authenticated using (true);
 drop policy if exists "Users manage own reactions" on public.clip_reactions;
 create policy "Users manage own reactions" on public.clip_reactions for all to authenticated
 using (user_id = auth.uid()) with check (user_id = auth.uid());
@@ -78,9 +79,22 @@ for each row execute function public.create_comment_notification();
 drop policy if exists "Authenticated users can upload profile banners" on storage.objects;
 create policy "Authenticated users can upload profile banners"
 on storage.objects for insert to authenticated
-with check (bucket_id='clips' and (storage.foldername(name))[2]='banner' and (storage.foldername(name))[1]=(select auth.uid()::text));
+with check (bucket_id='clips' and (storage.foldername(name))[1]=(select auth.uid()::text) and split_part((storage.filename(name)),'/',1)='banner');
 drop policy if exists "Authenticated users can update profile banners" on storage.objects;
 create policy "Authenticated users can update profile banners"
 on storage.objects for update to authenticated
-using (bucket_id='clips' and (storage.foldername(name))[2]='banner' and (storage.foldername(name))[1]=(select auth.uid()::text))
-with check (bucket_id='clips' and (storage.foldername(name))[2]='banner' and (storage.foldername(name))[1]=(select auth.uid()::text));
+using (bucket_id='clips' and (storage.foldername(name))[1]=(select auth.uid()::text) and split_part((storage.filename(name)),'/',1)='banner')
+with check (bucket_id='clips' and (storage.foldername(name))[1]=(select auth.uid()::text) and split_part((storage.filename(name)),'/',1)='banner');
+
+create or replace function public.create_reaction_notification()
+returns trigger language plpgsql security definer set search_path=public as $$
+declare owner_id uuid;
+begin
+  select user_id into owner_id from public.clips where id=new.clip_id;
+  if owner_id is not null and owner_id <> new.user_id then
+    insert into public.notifications(user_id,recipient_id,actor_id,type,clip_id) values(owner_id,owner_id,new.user_id,'reaction',new.clip_id);
+  end if;
+  return new;
+end; $$;
+drop trigger if exists clip_reactions_notification_trigger on public.clip_reactions;
+create trigger clip_reactions_notification_trigger after insert on public.clip_reactions for each row execute function public.create_reaction_notification();
