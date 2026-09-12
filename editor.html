@@ -177,109 +177,160 @@ function length(c){return c.length}
 document.getElementById("del").onclick=()=>{if(S.selectedOverlay){checkpoint();S.overlays=S.overlays.filter(o=>o.id!==S.selectedOverlay);S.selectedOverlay=null}else if(S.selectedClip){checkpoint();S.clips=S.clips.filter(c=>c.id!==S.selectedClip);S.selectedClip=null;normalize()}render()};
 document.getElementById("play").onclick=async()=>{if(!duration())return;S.playing=true;const tick=async()=>{if(!S.playing)return;await seek(Math.min(duration(),S.time+1/30));if(S.time>=duration()){S.playing=false;return}requestAnimationFrame(tick)};tick()};
 document.getElementById("pause").onclick=()=>S.playing=false;document.getElementById("home").onclick=()=>seek(0);
-async function exportProject(){
-  clearError();
-  if(!S.clips.length){showErr("Add a video first.");return}
-  const mime=["video/webm;codecs=vp9,opus","video/webm;codecs=vp8,opus","video/webm"].find(x=>MediaRecorder.isTypeSupported(x));
-  if(!mime){showErr("Browser export is not supported.");return}
-  const btn=document.getElementById("export");btn.disabled=true;btn.textContent="Exporting...";
-  const audioEls=[];
-  let audioCtx=null,dest=null;
-  try{
-    const stream=cv.captureStream(30);
-    audioCtx=new (window.AudioContext||window.webkitAudioContext)();
-    dest=audioCtx.createMediaStreamDestination();
+function waitFrame() {
+  return new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+}
 
-    for(const item of S.audios){
-      const a=document.createElement("audio");
-      a.src=item.url;
-      a.preload="auto";
-      const source=audioCtx.createMediaElementSource(a);
-      source.connect(dest);
-      audioEls.push({el:a,item});
+function waitSeeked(video, timeoutMs = 900) {
+  return new Promise(resolve => {
+    let done = false;
+    const finish = () => {
+      if (done) return;
+      done = true;
+      video.removeEventListener("seeked", finish);
+      resolve();
+    };
+    video.addEventListener("seeked", finish);
+    setTimeout(finish, timeoutMs);
+  });
+}
+
+async function exportProject() {
+  clearErr();
+  if (!S.clips.length) {
+    showErr("Add a video first.");
+    return;
+  }
+
+  const mime = ["video/webm;codecs=vp9", "video/webm;codecs=vp8", "video/webm"]
+    .find(x => window.MediaRecorder && MediaRecorder.isTypeSupported(x));
+
+  if (!mime) {
+    showErr("Browser export is not supported on this browser.");
+    return;
+  }
+
+  const btn = document.getElementById("export");
+  btn.disabled = true;
+  btn.textContent = "Exporting 0%";
+
+  const total = Math.max(duration(), 0.05);
+  const fps = 24;
+  const step = 1 / fps;
+
+  try {
+    const first = S.clips[0];
+    if (first) {
+      await loadVideo(first.url);
+      S.video.currentTime = first.in || 0;
+      await waitSeeked(S.video);
     }
 
-    const tracks=[...stream.getVideoTracks(),...dest.stream.getAudioTracks()];
-    const outStream=new MediaStream(tracks);
-    const rec=new MediaRecorder(outStream,{mimeType:mime});
-    const chunks=[];
-    rec.ondataavailable=e=>{if(e.data.size)chunks.push(e.data)};
-    rec.start();
+    draw();
+    await waitFrame();
 
-    for(let t=0;t<duration();t+=1/30){
-      S.time=t;
-      const c=active();
-      if(c){
-        if(S.video.src!==c.url)await loadVideo(c.url);
-        S.video.currentTime=Math.max(c.in,Math.min(c.out,c.in+(t-c.start)));
-      }
+    const stream = cv.captureStream(fps);
+    const rec = new MediaRecorder(stream, {
+      mimeType: mime,
+      videoBitsPerSecond: 5_000_000
+    });
 
-      for(const item of audioEls){
-        const local=t-item.item.start;
-        if(local>=0&&local<=item.item.duration){
-          if(Math.abs(item.el.currentTime-local)>.12)item.el.currentTime=local;
-          if(audioCtx.state==="suspended")await audioCtx.resume();
-          item.el.play().catch(()=>{});
-        }else{
-          item.el.pause();
+    const chunks = [];
+    rec.ondataavailable = e => {
+      if (e.data && e.data.size) chunks.push(e.data);
+    };
+
+    rec.start(200);
+
+    for (let t = 0; t < total; t += step) {
+      S.time = t;
+      const c = active();
+      if (c) {
+        if (S.video.src !== c.url) await loadVideo(c.url);
+        const local = c.in + (t - c.start);
+        const target = Math.max(c.in, Math.min(c.out - 0.001, local));
+        if (Math.abs((S.video.currentTime || 0) - target) > 0.03) {
+          S.video.currentTime = target;
+          await waitSeeked(S.video);
         }
       }
-
       draw();
-      await new Promise(resolve=>requestAnimationFrame(resolve));
+      await waitFrame();
+      btn.textContent = "Exporting " + Math.min(99, Math.floor((t / total) * 100)) + "%";
     }
 
-    audioEls.forEach(x=>x.el.pause());
+    draw();
+    await waitFrame();
+    await waitFrame();
+
+    const stopped = new Promise(resolve => {
+      rec.onstop = resolve;
+      setTimeout(resolve, 4000);
+    });
     rec.stop();
-    await new Promise(resolve=>{rec.onstop=resolve});
-    outStream.getTracks().forEach(t=>t.stop());
-    if(audioCtx)await audioCtx.close();
+    await stopped;
+    stream.getTracks().forEach(t => t.stop());
 
-    const blob=new Blob(chunks,{type:mime});
-    const user=await getCurrentUser();
+    if (!chunks.length) throw new Error("Export produced empty file.");
 
-    if(user){
-      const p=await getProfile();
-      const used=Number(p?.storage_used||0);
-      if(used+blob.size>MAX_STORAGE)throw new Error("5GB storage limit reached.");
-      const path=user.id+"/edited_"+Date.now()+".webm";
-      const up=await client.storage.from("clips").upload(path,blob,{contentType:"video/webm",upsert:false});
-      if(up.error)throw up.error;
+    const blob = new Blob(chunks, { type: mime });
+    const user = await getCurrentUser();
 
-      const title=document.getElementById("outTitle").value.trim()||"Edited Clip";
-      const description=document.getElementById("outDesc").value.trim()||null;
-      let ins=await client.from("clips").insert({
-        user_id:user.id,title,description,file_path:path,file_size:blob.size,
-        visibility:"public",views:0,likes_count:0,comments_count:0,
-        published_at:new Date().toISOString()
-      }).select("id").maybeSingle();
+    if (user) {
+      const p = await getProfile();
+      const used = Number(p?.storage_used || 0);
+      if (used + blob.size > MAX_STORAGE) throw new Error("5GB storage limit reached.");
 
-      if(ins.error&&/column|schema cache/i.test(ins.error.message||"")){
-        ins=await client.from("clips").insert({
-          user_id:user.id,title,description,file_path:path,file_size:blob.size,
-          visibility:"public",views:0
-        }).select("id").maybeSingle();
+      const path = user.id + "/edited-" + Date.now() + ".webm";
+      const { error: upErr } = await client.storage.from("clips").upload(path, blob, {
+        contentType: "video/webm",
+        upsert: false
+      });
+      if (upErr) throw upErr;
+
+      const title = (document.getElementById("outTitle").value || "Edited Clip").trim();
+      const description = (document.getElementById("outDesc").value || "").trim() || null;
+
+      const { data: row, error: insErr } = await client
+        .from("clips")
+        .insert({
+          user_id: user.id,
+          title,
+          description,
+          file_path: path,
+          file_size: blob.size,
+          visibility: "private",
+          views: 0,
+          likes_count: 0,
+          comments_count: 0
+        })
+        .select("id")
+        .maybeSingle();
+
+      if (insErr) throw insErr;
+      await client.from("profiles").update({ storage_used: used + blob.size }).eq("id", user.id);
+
+      if (row?.id) {
+        location.href = "clip.html?id=" + row.id;
+        return;
       }
-
-      if(ins.error)throw ins.error;
-      await client.from("profiles").update({storage_used:used+blob.size}).eq("id",user.id);
-      if(ins.data?.id){location.href="clip.html?id="+ins.data.id;return}
     }
 
-    const a=document.createElement("a");
-    a.href=URL.createObjectURL(blob);
-    a.download=(document.getElementById("outTitle").value.trim()||"edited-clip")+".webm";
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = ((document.getElementById("outTitle").value || "edited-clip").trim()) + ".webm";
     a.click();
-  }catch(e){
+    btn.textContent = "Exported";
+  } catch (e) {
     console.error(e);
-    if(audioCtx){try{await audioCtx.close()}catch(_){}}
-    showErr(e.message||"Export failed");
-  }finally{
-    btn.disabled=false;
-    btn.textContent="Export";
+    showErr(e.message || "Export failed");
+    btn.textContent = "Export";
+  } finally {
+    btn.disabled = false;
   }
 }
-document.getElementById("export").onclick=exportProject;
+
+document.getElementById("export").onclick = exportProject;
 async function init(){try{await addCurrent()}catch(e){showErr(e.message)}normalize();render();if(!new URLSearchParams(location.search).get("id"))seek(0)}
 init();
 </script>
