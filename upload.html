@@ -61,6 +61,7 @@
   <div id="progress" style="display:none;margin-top:14px;height:6px;background:#222;border-radius:99px;overflow:hidden;">
     <div id="progress-fill" style="height:100%;width:0%;background:#22c55e;transition:width .25s;"></div>
   </div>
+  <p id="upload-note" style="display:none;color:#777;font-size:12px;margin-top:10px;text-align:center;">The clip is uploaded. Thumbnail processing can finish after you leave this page.</p>
 </div>
 
 <script src="app.js"></script>
@@ -99,8 +100,10 @@ document.getElementById("upload-btn").onclick = async () => {
   const btn = document.getElementById("upload-btn");
   const progress = document.getElementById("progress");
   const fill = document.getElementById("progress-fill");
+  const note = document.getElementById("upload-note");
   errorEl.style.display = "none";
   successEl.style.display = "none";
+  note.style.display = "none";
 
   const file = document.getElementById("file").files[0];
   const customThumb = document.getElementById("thumb").files[0];
@@ -117,13 +120,9 @@ document.getElementById("upload-btn").onclick = async () => {
   btn.disabled = true;
   btn.textContent = "Uploading...";
   progress.style.display = "block";
-  fill.style.width = "15%";
+  fill.style.width = "10%";
 
   try {
-    if (typeof captureVideoFrame !== "function" || typeof uploadThumbnailBlob !== "function") {
-      throw new Error("Thumbnail helpers missing from app.js — paste the thumbnail block into app.js");
-    }
-
     const profile = await getProfile();
     if (!profile) throw new Error("Profile not loaded.");
     const used = profile.storage_used || 0;
@@ -132,28 +131,26 @@ document.getElementById("upload-btn").onclick = async () => {
     const ext = (file.name.split(".").pop() || "mp4").toLowerCase();
     const filePath = user.id + "/" + Date.now() + "." + ext;
 
-    fill.style.width = "35%";
+    /* The video upload is the only blocking upload now. Thumbnail work is deliberately deferred. */
+    fill.style.width = "20%";
     const { error: upErr } = await client.storage.from("clips").upload(filePath, file, {
       contentType: file.type || (ext === "webm" ? "video/webm" : "video/mp4"),
       upsert: false
     });
     if (upErr) throw upErr;
 
-    fill.style.width = "55%";
+    fill.style.width = "75%";
     let thumbnail_path = null;
-    try {
-      let thumbBlob;
-      if (customThumb && customThumb.type.startsWith("image/")) {
-        thumbBlob = customThumb;
-      } else {
-        thumbBlob = await captureVideoFrame(file);
+
+    /* A custom thumbnail is small and can be uploaded without decoding the video. */
+    if (customThumb && customThumb.type.startsWith("image/")) {
+      try {
+        thumbnail_path = await uploadThumbnailBlob(user.id, customThumb);
+      } catch (thumbErr) {
+        console.warn("Custom thumbnail failed, continuing:", thumbErr);
       }
-      thumbnail_path = await uploadThumbnailBlob(user.id, thumbBlob);
-    } catch (te) {
-      console.warn("Thumbnail failed, continuing:", te);
     }
 
-    fill.style.width = "80%";
     const clip = await insertClip({
       user_id: user.id,
       title,
@@ -171,9 +168,12 @@ document.getElementById("upload-btn").onclick = async () => {
     await client.from("profiles").update({ storage_used: used + file.size }).eq("id", user.id);
 
     fill.style.width = "100%";
-    successEl.textContent = thumbnail_path ? "Uploaded with thumbnail!" : "Uploaded (no thumbnail)";
+    successEl.textContent = thumbnail_path ? "Uploaded with thumbnail!" : "Upload complete!";
     successEl.style.display = "block";
-    setTimeout(() => { location.href = "clip.html?id=" + clip.id; }, 600);
+    note.style.display = thumbnail_path ? "none" : "block";
+
+    /* Go straight to the clip. No waiting for video decoding/thumbnail generation. */
+    setTimeout(() => { location.href = "clip.html?id=" + clip.id; }, 250);
   } catch (err) {
     console.error(err);
     errorEl.textContent = err.message || "Upload failed";
