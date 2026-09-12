@@ -11,182 +11,35 @@
 <nav class="navbar" id="clipnow-navbar">
   <a href="index.html" class="logo">Clip<span>Now</span></a>
   <div class="nav-center">
-    <a href="index.html" id="nav-explore">Explore</a>
-    <a href="upload.html" id="nav-upload">Upload</a>
-    <a href="search.html" id="nav-search">Search</a>
-    <a href="profile.html" id="nav-profile">Profile</a>
-    <a href="download.html" id="nav-download">Download</a>
+    <a href="index.html" id="nav-explore">Explore</a><a href="upload.html" id="nav-upload">Upload</a><a href="search.html" id="nav-search">Search</a><a href="profile.html" id="nav-profile">Profile</a><a href="download.html" id="nav-download">Download</a>
   </div>
-  <div class="nav-right">
-    <a href="login.html" id="nav-login" class="btn btn-primary">Sign in</a>
-    <div id="nav-user">
-      <a href="profile.html" id="nav-username" class="nav-username"></a>
-      <button type="button" onclick="logout()" class="btn btn-outline">Logout</button>
-    </div>
-  </div>
+  <div class="nav-right"><a href="login.html" id="nav-login" class="btn btn-primary">Sign in</a><div id="nav-user"><a href="profile.html" id="nav-username" class="nav-username"></a><button type="button" onclick="logout()" class="btn btn-outline">Logout</button></div></div>
 </nav>
-
 <div class="container" style="max-width:560px;">
   <h1 class="page-title">Upload Clip</h1>
-  <p class="page-sub">MP4 / WebM. Leave thumbnail empty to auto-capture a frame.</p>
-  <div id="error" class="error"></div>
-  <div id="success" class="success"></div>
-
-  <div class="form-group">
-    <label>Video (MP4 / WebM)</label>
-    <input type="file" id="file" accept="video/mp4,video/webm,.mp4,.webm">
-  </div>
-  <div class="form-group">
-    <label>Thumbnail (optional)</label>
-    <input type="file" id="thumb" accept="image/*">
-  </div>
-  <div class="form-group">
-    <label>Title</label>
-    <input type="text" id="title" maxlength="120" placeholder="Title">
-  </div>
-  <div class="form-group">
-    <label>Description</label>
-    <textarea id="description" placeholder="Optional"></textarea>
-  </div>
-  <div class="form-group">
-    <label>Visibility</label>
-    <select id="visibility">
-      <option value="public">Public</option>
-      <option value="unlisted">Unlisted</option>
-      <option value="private">Private</option>
-    </select>
-  </div>
-
+  <p class="page-sub">MP4 / WebM. Maximum clip size: 200 MB.</p>
+  <div id="error" class="error"></div><div id="success" class="success"></div>
+  <div class="form-group"><label>Video (MP4 / WebM)</label><input type="file" id="file" accept="video/mp4,video/webm,.mp4,.webm"></div>
+  <div class="form-group"><label>Thumbnail (optional)</label><input type="file" id="thumb" accept="image/*"></div>
+  <div class="form-group"><label>Title</label><input type="text" id="title" maxlength="120" placeholder="Title"></div>
+  <div class="form-group"><label>Description</label><textarea id="description" placeholder="Optional"></textarea></div>
+  <div class="form-group"><label>Visibility</label><select id="visibility"><option value="public">Public</option><option value="unlisted">Unlisted</option><option value="private">Private</option></select></div>
   <button id="upload-btn" class="btn btn-green" style="width:100%;padding:12px;">Upload Clip</button>
-  <div id="progress" style="display:none;margin-top:14px;height:6px;background:#222;border-radius:99px;overflow:hidden;">
-    <div id="progress-fill" style="height:100%;width:0%;background:#22c55e;transition:width .25s;"></div>
-  </div>
+  <div id="progress" style="display:none;margin-top:14px;height:6px;background:#222;border-radius:99px;overflow:hidden;"><div id="progress-fill" style="height:100%;width:0%;background:#22c55e;transition:width .25s;"></div></div>
   <p id="upload-note" style="display:none;color:#777;font-size:12px;margin-top:10px;text-align:center;">The clip is uploaded. Thumbnail processing can finish after you leave this page.</p>
 </div>
-
-<script src="app.js"></script>
-<script src="moderation.js"></script>
+<script src="app.js"></script><script src="moderation.js"></script>
 <script>
-document.getElementById("file").addEventListener("change", () => {
-  const file = document.getElementById("file").files[0];
-  const title = document.getElementById("title");
-  if (file && !title.value.trim()) {
-    title.value = file.name.replace(/\.[^.]+$/, "").replace(/[-_]/g, " ");
-  }
-});
-
-async function insertClip(payload) {
-  let { data, error } = await client.from("clips").insert(payload).select("id").maybeSingle();
-  if (error && /column|schema cache/i.test(error.message || "")) {
-    const minimal = {
-      user_id: payload.user_id,
-      title: payload.title,
-      description: payload.description,
-      file_path: payload.file_path,
-      file_size: payload.file_size,
-      visibility: payload.visibility,
-      views: 0,
-      thumbnail_path: payload.thumbnail_path || null
-    };
-    ({ data, error } = await client.from("clips").insert(minimal).select("id").maybeSingle());
-  }
-  if (error) throw error;
-  if (data?.id) return data;
-  throw new Error("DB did not return clip id.");
-}
-
-document.getElementById("upload-btn").onclick = async () => {
-  const errorEl = document.getElementById("error");
-  const successEl = document.getElementById("success");
-  const btn = document.getElementById("upload-btn");
-  const progress = document.getElementById("progress");
-  const fill = document.getElementById("progress-fill");
-  const note = document.getElementById("upload-note");
-  errorEl.style.display = "none";
-  successEl.style.display = "none";
-  note.style.display = "none";
-
-  const file = document.getElementById("file").files[0];
-  const customThumb = document.getElementById("thumb").files[0];
-  const title = document.getElementById("title").value.trim();
-  const description = document.getElementById("description").value.trim();
-  const visibility = document.getElementById("visibility").value;
-
-  if (!file) { errorEl.textContent = "Select a video"; errorEl.style.display = "block"; return; }
-  if (!title) { errorEl.textContent = "Enter a title"; errorEl.style.display = "block"; return; }
-  if (!String(file.type || "").startsWith("video/")) { errorEl.textContent = "Only video files are allowed."; errorEl.style.display = "block"; return; }
-  if (customThumb && !String(customThumb.type || "").startsWith("image/")) { errorEl.textContent = "Thumbnail must be an image."; errorEl.style.display = "block"; return; }
-
-  try {
-    ClipNowModeration.assertTextAllowed(title, "post");
-    ClipNowModeration.assertTextAllowed(description, "post");
-  } catch (err) {
-    errorEl.textContent = err.message || "That text is not allowed.";
-    errorEl.style.display = "block";
-    return;
-  }
-
-  const user = await requireLogin();
-  if (!user) return;
-
-  btn.disabled = true;
-  btn.textContent = "Uploading...";
-  progress.style.display = "block";
-  fill.style.width = "8%";
-
-  try {
-    // Media moderation is temporarily disabled. Text moderation remains active.
-    const profile = await getProfile();
-    if (!profile) throw new Error("Profile not loaded.");
-    const used = profile.storage_used || 0;
-    if (used + file.size > MAX_STORAGE) throw new Error("5GB storage limit reached");
-
-    const ext = (file.name.split(".").pop() || "mp4").toLowerCase();
-    const filePath = user.id + "/" + Date.now() + "." + ext;
-
-    fill.style.width = "20%";
-    const { error: upErr } = await client.storage.from("clips").upload(filePath, file, {
-      contentType: file.type || (ext === "webm" ? "video/webm" : "video/mp4"),
-      upsert: false
-    });
-    if (upErr) throw upErr;
-
-    fill.style.width = "75%";
-    let thumbnail_path = null;
-
-    if (customThumb && customThumb.type.startsWith("image/")) {
-      thumbnail_path = await uploadThumbnailBlob(user.id, customThumb);
-    }
-
-    const clip = await insertClip({
-      user_id: user.id,
-      title,
-      description: description || null,
-      file_path: filePath,
-      file_size: file.size,
-      visibility,
-      views: 0,
-      likes_count: 0,
-      comments_count: 0,
-      thumbnail_path,
-      published_at: visibility === "public" ? new Date().toISOString() : null
-    });
-
-    await client.from("profiles").update({ storage_used: used + file.size }).eq("id", user.id);
-
-    fill.style.width = "100%";
-    successEl.textContent = "Upload complete!";
-    successEl.style.display = "block";
-    note.style.display = thumbnail_path ? "none" : "block";
-    setTimeout(() => { location.href = "clip.html?id=" + clip.id; }, 250);
-  } catch (err) {
-    console.error(err);
-    errorEl.textContent = err.message || "Upload failed";
-    errorEl.style.display = "block";
-    btn.disabled = false;
-    btn.textContent = "Upload Clip";
-    progress.style.display = "none";
-  }
+const MAX_CLIP_SIZE = 200 * 1024 * 1024;
+document.getElementById("file").addEventListener("change", () => {const file=document.getElementById("file").files[0],title=document.getElementById("title");if(file&&!title.value.trim())title.value=file.name.replace(/\.[^.]+$/,'').replace(/[-_]/g,' ');});
+async function insertClip(payload){let {data,error}=await client.from("clips").insert(payload).select("id").maybeSingle();if(error&&/column|schema cache/i.test(error.message||"")){const minimal={user_id:payload.user_id,title:payload.title,description:payload.description,file_path:payload.file_path,file_size:payload.file_size,visibility:payload.visibility,views:0,thumbnail_path:payload.thumbnail_path||null};({data,error}=await client.from("clips").insert(minimal).select("id").maybeSingle());}if(error)throw error;if(data?.id)return data;throw new Error("DB did not return clip id.");}
+document.getElementById("upload-btn").onclick=async()=>{
+ const errorEl=document.getElementById("error"),successEl=document.getElementById("success"),btn=document.getElementById("upload-btn"),progress=document.getElementById("progress"),fill=document.getElementById("progress-fill"),note=document.getElementById("upload-note");errorEl.style.display="none";successEl.style.display="none";note.style.display="none";
+ const file=document.getElementById("file").files[0],customThumb=document.getElementById("thumb").files[0],title=document.getElementById("title").value.trim(),description=document.getElementById("description").value.trim(),visibility=document.getElementById("visibility").value;
+ if(!file){errorEl.textContent="Select a video";errorEl.style.display="block";return;}if(file.size>MAX_CLIP_SIZE){errorEl.textContent="Clip is too large. Maximum size is 200 MB.";errorEl.style.display="block";return;}if(!title){errorEl.textContent="Enter a title";errorEl.style.display="block";return;}if(!String(file.type||"").startsWith("video/")){errorEl.textContent="Only video files are allowed.";errorEl.style.display="block";return;}if(customThumb&&!String(customThumb.type||"").startsWith("image/")){errorEl.textContent="Thumbnail must be an image.";errorEl.style.display="block";return;}
+ try{ClipNowModeration.assertTextAllowed(title,"post");ClipNowModeration.assertTextAllowed(description,"post");}catch(err){errorEl.textContent=err.message||"That text is not allowed.";errorEl.style.display="block";return;}
+ const user=await requireLogin();if(!user)return;btn.disabled=true;btn.textContent="Uploading...";progress.style.display="block";fill.style.width="8%";
+ try{const profile=await getProfile();if(!profile)throw new Error("Profile not loaded.");const used=profile.storage_used||0;if(used+file.size>MAX_STORAGE)throw new Error("5GB storage limit reached");const ext=(file.name.split(".").pop()||"mp4").toLowerCase(),filePath=user.id+"/"+Date.now()+"."+ext;fill.style.width="20%";const {error:upErr}=await client.storage.from("clips").upload(filePath,file,{contentType:file.type||(ext==="webm"?"video/webm":"video/mp4"),upsert:false});if(upErr)throw upErr;fill.style.width="75%";let thumbnail_path=null;if(customThumb&&customThumb.type.startsWith("image/"))thumbnail_path=await uploadThumbnailBlob(user.id,customThumb);const clip=await insertClip({user_id:user.id,title,description:description||null,file_path:filePath,file_size:file.size,visibility,views:0,likes_count:0,comments_count:0,thumbnail_path,published_at:visibility==="public"?new Date().toISOString():null});await client.from("profiles").update({storage_used:used+file.size}).eq("id",user.id);fill.style.width="100%";successEl.textContent="Upload complete!";successEl.style.display="block";note.style.display=thumbnail_path?"none":"block";setTimeout(()=>{location.href="clip.html?id="+clip.id;},250);}catch(err){console.error(err);errorEl.textContent=err.message||"Upload failed";errorEl.style.display="block";btn.disabled=false;btn.textContent="Upload Clip";progress.style.display="none";}
 };
 </script>
 </body>
