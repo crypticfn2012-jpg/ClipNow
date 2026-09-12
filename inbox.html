@@ -3,73 +3,49 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Inbox — ClipNow</title>
+  <title>Inbox - ClipNow</title>
   <link rel="stylesheet" href="style.css">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    .inbox-wrap{max-width:900px;margin:0 auto}.inbox-head{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:24px}.inbox-head h1{margin:0}.inbox-list{display:flex;flex-direction:column;gap:10px}.notification{display:flex;align-items:center;gap:14px;padding:16px 18px;border:1px solid rgba(255,255,255,.08);border-radius:12px;background:rgba(255,255,255,.025);transition:background .15s,border-color .15s}.notification.unread{background:rgba(34,197,94,.07);border-color:rgba(34,197,94,.22)}.notification:hover{background:rgba(255,255,255,.05)}.notification-avatar{width:42px;height:42px;min-width:42px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:#222;color:#fff;overflow:hidden;font-weight:600}.notification-avatar img{width:100%;height:100%;object-fit:cover}.notification-main{min-width:0;flex:1}.notification-text{color:#ddd;line-height:1.45}.notification-text a{color:#fff;text-decoration:none;font-weight:600}.notification-text a:hover{text-decoration:underline}.notification-time{font-size:12px;color:#777;margin-top:4px}.notification-dot{width:8px;height:8px;border-radius:50%;background:#22c55e;flex:none}.notification-action{font-size:12px;color:#999;white-space:nowrap}.inbox-empty{text-align:center;padding:60px 20px;color:#777}.inbox-error{text-align:center;padding:40px 20px;color:#f87171}@media(max-width:600px){.notification{padding:13px}.notification-action{display:none}.inbox-head{align-items:flex-start;flex-direction:column}}
+  </style>
 </head>
 <body>
 <nav class="navbar" id="clipnow-navbar">
   <a href="index.html" class="logo">Clip<span>Now</span></a>
-
-  <div class="nav-center">
-    <a href="index.html" id="nav-explore">Explore</a>
-    <a href="upload.html" id="nav-upload">Upload</a>
-    <a href="search.html" id="nav-search">Search</a>
-    <a href="profile.html" id="nav-profile">Profile</a>
-    <a href="download.html" id="nav-download">Download</a>
-  </div>
-
-  <div class="nav-right">
-    <a href="login.html" id="nav-login" class="btn btn-primary">Sign in</a>
-    <div id="nav-user">
-      <a href="inbox.html" class="inbox-icon" title="Inbox" aria-label="Inbox">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M4 4h16v16H4z"></path>
-          <path d="M4 9h5l2 3h2l2-3h5"></path>
-        </svg>
-      </a>
-      <a href="profile.html" id="nav-username" class="nav-username"></a>
-      <button type="button" onclick="logout()" class="btn btn-outline">Logout</button>
-    </div>
-  </div>
+  <div class="nav-center"><a href="index.html" id="nav-explore">Explore</a><a href="upload.html" id="nav-upload">Upload</a><a href="search.html" id="nav-search">Search</a><a href="profile.html" id="nav-profile">Profile</a><a href="download.html" id="nav-download">Download</a></div>
+  <div class="nav-right"><a href="login.html" id="nav-login" class="btn btn-primary">Sign in</a><div id="nav-user"><a href="inbox.html" class="inbox-icon" title="Inbox" aria-label="Inbox"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 4h16v16H4z"></path><path d="M4 9h5l2 3h2l2-3h5"></path></svg></a><a href="profile.html" id="nav-username" class="nav-username"></a><button type="button" onclick="logout()" class="btn btn-outline">Logout</button></div></div>
 </nav>
-<div class="container">
-  <div class="page-head"><div><h1 class="page-title">Inbox</h1><p class="page-sub">Your notifications and messages.</p></div></div>
-  <div class="inbox-wrap"><div id="inbox-list" class="inbox-list"><div class="empty-inbox">Loading...</div></div></div>
-</div>
+<div class="container"><div class="inbox-wrap"><div class="inbox-head"><div><h1 class="page-title">Inbox</h1><p class="page-sub">Your follows, likes and comments.</p></div><button id="read-all" class="btn btn-outline" style="display:none">Mark all as read</button></div><div id="inbox-list" class="inbox-list"><div class="inbox-empty">Loading...</div></div></div></div>
 <script src="app.js"></script>
 <script>
-async function loadInbox() {
-  const list = document.getElementById("inbox-list");
-  try {
-    if (!window.client) throw new Error("Supabase client failed to initialize.");
-    const { data: { user }, error: userError } = await window.client.auth.getUser();
-    if (userError || !user) {
-      list.innerHTML = '<div class="empty-inbox"><h2>Sign in to view your inbox</h2><p>You need to be signed in to see your messages.</p><br><a href="login.html" class="btn btn-primary">Sign in</a></div>';
-      return;
-    }
-    const { data, error } = await window.client.from("messages").select("*").eq("recipient_id", user.id).order("created_at", { ascending: false });
-    if (error) {
-      console.warn("Inbox:", error);
-      list.innerHTML = '<div class="empty-inbox"><h2>Your inbox is empty</h2><p>You don\'t have any messages yet.</p></div>';
-      return;
-    }
-    if (!data || !data.length) {
-      list.innerHTML = '<div class="empty-inbox"><h2>Nothing here yet</h2><p>Your ClipNow notifications will appear here.</p></div>';
-      return;
-    }
-    list.innerHTML = data.map(message => {
-      const sender = message.sender_name || message.from_name || "ClipNow";
-      const text = message.content || message.message || "You have a new message.";
-      const date = message.created_at ? new Date(message.created_at).toLocaleString() : "";
-      const unread = message.read === false || message.is_read === false;
-      return `<div class="message ${unread ? "unread" : ""}"><div class="message-avatar">${escapeHtml(sender.charAt(0).toUpperCase())}</div><div class="message-content"><div class="message-top"><div class="message-name">${escapeHtml(sender)}</div><div class="message-date">${escapeHtml(date)}</div></div><div class="message-text">${escapeHtml(text)}</div></div>${unread ? '<div class="unread-dot"></div>' : ""}</div>`;
-    }).join("");
-  } catch (err) {
-    console.error("Inbox:", err);
-    list.innerHTML = `<div class="empty-inbox"><h2>Inbox unavailable</h2><p>${escapeHtml(err.message || "Something went wrong.")}</p></div>`;
-  }
+let me=null;
+function timeAgo(value){const diff=Math.max(0,Date.now()-new Date(value).getTime());const mins=Math.floor(diff/60000);if(mins<1)return "just now";if(mins<60)return `${mins}m ago`;const hours=Math.floor(mins/60);if(hours<24)return `${hours}h ago`;const days=Math.floor(hours/24);if(days<7)return `${days}d ago`;return new Date(value).toLocaleDateString();}
+async function loadInbox(){
+  me=await requireLogin();if(!me)return;const box=document.getElementById("inbox-list");
+  const {data:rows,error}=await client.from("notifications").select("id,recipient_id,actor_id,type,clip_id,comment_id,created_at,read_at").eq("recipient_id",me.id).order("created_at",{ascending:false}).limit(100);
+  if(error){console.error("loadInbox:",error);box.innerHTML=`<div class="inbox-error">Could not load your inbox.<br><small>${escapeHtml(error.message||"")}</small></div>`;return;}
+  if(!rows?.length){box.innerHTML='<div class="inbox-empty">Your inbox is empty.<br>Follow, like or comment on ClipNow to see activity here.</div>';return;}
+  const actorIds=[...new Set(rows.map(n=>n.actor_id).filter(Boolean))],clipIds=[...new Set(rows.map(n=>n.clip_id).filter(Boolean))],commentIds=[...new Set(rows.map(n=>n.comment_id).filter(Boolean))];
+  const [{data:profiles},{data:clips},{data:comments}]=await Promise.all([
+    actorIds.length?client.from("profiles").select("id,username,display_name,avatar_url,is_dev,rainbow_name").in("id",actorIds):Promise.resolve({data:[]}),
+    clipIds.length?client.from("clips").select("id,title").in("id",clipIds):Promise.resolve({data:[]}),
+    commentIds.length?client.from("comments").select("id,content").in("id",commentIds):Promise.resolve({data:[]})
+  ]);
+  const profileMap=Object.fromEntries((profiles||[]).map(p=>[p.id,p])),clipMap=Object.fromEntries((clips||[]).map(c=>[c.id,c])),commentMap=Object.fromEntries((comments||[]).map(c=>[c.id,c]));
+  const unread=rows.filter(n=>!n.read_at).length;document.getElementById("read-all").style.display=unread?"inline-flex":"none";
+  box.innerHTML=rows.map(n=>{
+    const p=profileMap[n.actor_id]||{},display=p.display_name||p.username||"Someone",username=p.username||"user",actorName=p.rainbow_name?`<span class="rainbow-name">${escapeHtml(display)}</span>`:escapeHtml(display),avatar=p.avatar_url?`<img src="${escapeHtml(p.avatar_url)}" alt="">`:escapeHtml(username.charAt(0).toUpperCase()),profileHref=`profile.html?user=${encodeURIComponent(username)}`,clip=clipMap[n.clip_id],clipHref=n.clip_id?`clip.html?id=${encodeURIComponent(n.clip_id)}`:"#";
+    let text="",action="";
+    if(n.type==="follow"){text=`<a href="${profileHref}">${actorName}</a> followed you.`;action=`<a class="btn btn-outline" href="${profileHref}" style="padding:6px 10px;font-size:12px">View profile</a>`;}
+    else if(n.type==="like"){const title=clip?.title||"your clip";text=`<a href="${profileHref}">${actorName}</a> liked <a href="${clipHref}">${escapeHtml(title)}</a>.`;action=`<a class="btn btn-outline" href="${clipHref}" style="padding:6px 10px;font-size:12px">View clip</a>`;}
+    else {const title=clip?.title||"your clip",preview=commentMap[n.comment_id]?.content||"";text=`<a href="${profileHref}">${actorName}</a> commented on <a href="${clipHref}">${escapeHtml(title)}</a>${preview?`<div style="font-size:13px;color:#999;margin-top:3px">“${escapeHtml(preview.slice(0,100))}${preview.length>100?"…":""}”</div>`:""}`;action=`<a class="btn btn-outline" href="${clipHref}" style="padding:6px 10px;font-size:12px">View clip</a>`;}
+    return `<div class="notification ${n.read_at?"":"unread"}" data-id="${escapeHtml(n.id)}"><a class="notification-avatar" href="${profileHref}">${avatar}</a><div class="notification-main"><div class="notification-text">${text}</div><div class="notification-time">${timeAgo(n.created_at)}</div></div><div class="notification-action">${action}</div>${n.read_at?"":"<span class=\"notification-dot\" title=\"Unread\"></span>"}</div>`;
+  }).join("");
+  await markVisibleRead(rows);
 }
+async function markVisibleRead(rows){const unreadIds=rows.filter(n=>!n.read_at).map(n=>n.id);if(!unreadIds.length)return;const {error}=await client.from("notifications").update({read_at:new Date().toISOString()}).in("id",unreadIds).eq("recipient_id",me.id);if(error){console.warn("mark notifications read:",error);return;}document.querySelectorAll(".notification.unread").forEach(el=>el.classList.remove("unread"));document.querySelectorAll(".notification-dot").forEach(el=>el.remove());document.getElementById("read-all").style.display="none";}
+document.getElementById("read-all").onclick=async()=>{if(!me)return;const {error}=await client.from("notifications").update({read_at:new Date().toISOString()}).eq("recipient_id",me.id).is("read_at",null);if(error){alert(error.message);return;}await loadInbox();};
 loadInbox();
 </script>
 </body>
