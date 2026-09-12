@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="https://crypticfn2012-jpg.github.io/ClipNow/logo.png" alt="ClipNow" width="180">
+<img src="https://github.com/crypticfn2012-jpg/ClipNow/blob/main/assets/clipnow-wordmark.svg" alt="ClipNow" width="180">
 
 # ClipNow
 
