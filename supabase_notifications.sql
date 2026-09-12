@@ -1,12 +1,14 @@
 -- ClipNow notifications
 -- Run this once in the Supabase SQL Editor.
--- This migration is safe to run even if an older notifications table already exists.
+-- IMPORTANT: older ClipNow databases use notifications.user_id as the
+-- required recipient column. The current app also uses recipient_id.
+-- This migration supports both so existing databases do not break.
 
 create extension if not exists pgcrypto;
 
--- Create the table if it does not exist.
 create table if not exists public.notifications (
   id uuid primary key default gen_random_uuid(),
+  user_id uuid,
   recipient_id uuid,
   actor_id uuid,
   type text,
@@ -16,7 +18,7 @@ create table if not exists public.notifications (
   read_at timestamptz
 );
 
--- Repair older/incomplete notifications tables by adding the columns the current app needs.
+alter table public.notifications add column if not exists user_id uuid;
 alter table public.notifications add column if not exists recipient_id uuid;
 alter table public.notifications add column if not exists actor_id uuid;
 alter table public.notifications add column if not exists type text;
@@ -25,14 +27,41 @@ alter table public.notifications add column if not exists comment_id uuid;
 alter table public.notifications add column if not exists created_at timestamptz;
 alter table public.notifications add column if not exists read_at timestamptz;
 
--- Give existing rows a timestamp if an old table had a nullable/missing created_at value.
+-- Keep both recipient columns synchronized for old and new versions.
+update public.notifications
+set recipient_id = user_id
+where recipient_id is null and user_id is not null;
+
+update public.notifications
+set user_id = recipient_id
+where user_id is null and recipient_id is not null;
+
 update public.notifications
 set created_at = now()
 where created_at is null;
 
 alter table public.notifications alter column created_at set default now();
 
--- Add foreign keys only when the table does not already have an equivalent constraint.
+-- New notifications must always have the legacy required user_id populated.
+-- Keep user_id nullable only if the existing database already made it nullable;
+-- the trigger functions below explicitly write both columns.
+
+-- Foreign keys. Existing constraints are left alone.
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint
+    where conrelid = 'public.notifications'::regclass
+      and contype = 'f'
+      and pg_get_constraintdef(oid) ilike '%(user_id)%'
+  ) then
+    alter table public.notifications
+      add constraint notifications_user_id_fkey
+      foreign key (user_id) references public.profiles(id) on delete cascade;
+  end if;
+exception when duplicate_object then null;
+end $$;
+
 do $$
 begin
   if not exists (
@@ -93,11 +122,12 @@ begin
 exception when duplicate_object then null;
 end $$;
 
+create index if not exists notifications_user_created_idx
+  on public.notifications(user_id, created_at desc);
 create index if not exists notifications_recipient_created_idx
   on public.notifications(recipient_id, created_at desc);
-
-create index if not exists notifications_recipient_unread_idx
-  on public.notifications(recipient_id, read_at)
+create index if not exists notifications_user_unread_idx
+  on public.notifications(user_id, read_at)
   where read_at is null;
 
 grant usage on schema public to anon, authenticated;
@@ -108,15 +138,14 @@ alter table public.notifications enable row level security;
 drop policy if exists "Users can read their own notifications" on public.notifications;
 create policy "Users can read their own notifications"
 on public.notifications for select to authenticated
-using (recipient_id = auth.uid());
+using (user_id = auth.uid() or recipient_id = auth.uid());
 
 drop policy if exists "Users can mark their own notifications read" on public.notifications;
 create policy "Users can mark their own notifications read"
 on public.notifications for update to authenticated
-using (recipient_id = auth.uid())
-with check (recipient_id = auth.uid());
+using (user_id = auth.uid() or recipient_id = auth.uid())
+with check (user_id = auth.uid() or recipient_id = auth.uid());
 
--- Trigger functions use SECURITY DEFINER so users cannot forge notifications.
 create or replace function public.create_follow_notification()
 returns trigger
 language plpgsql
@@ -127,8 +156,8 @@ begin
   if new.follower_id is not null
      and new.following_id is not null
      and new.follower_id <> new.following_id then
-    insert into public.notifications (recipient_id, actor_id, type)
-    values (new.following_id, new.follower_id, 'follow');
+    insert into public.notifications (user_id, recipient_id, actor_id, type)
+    values (new.following_id, new.following_id, new.follower_id, 'follow');
   end if;
   return new;
 end;
@@ -150,8 +179,8 @@ declare
 begin
   select user_id into owner_id from public.clips where id = new.clip_id;
   if owner_id is not null and owner_id <> new.user_id then
-    insert into public.notifications (recipient_id, actor_id, type, clip_id)
-    values (owner_id, new.user_id, 'like', new.clip_id);
+    insert into public.notifications (user_id, recipient_id, actor_id, type, clip_id)
+    values (owner_id, owner_id, new.user_id, 'like', new.clip_id);
   end if;
   return new;
 end;
@@ -173,8 +202,8 @@ declare
 begin
   select user_id into owner_id from public.clips where id = new.clip_id;
   if owner_id is not null and owner_id <> new.user_id then
-    insert into public.notifications (recipient_id, actor_id, type, clip_id, comment_id)
-    values (owner_id, new.user_id, 'comment', new.clip_id, new.id);
+    insert into public.notifications (user_id, recipient_id, actor_id, type, clip_id, comment_id)
+    values (owner_id, owner_id, new.user_id, 'comment', new.clip_id, new.id);
   end if;
   return new;
 end;
