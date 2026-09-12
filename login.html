@@ -6,51 +6,253 @@
   <title>Sign in - ClipNow</title>
   <link rel="stylesheet" href="style.css">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    .login-page {
+      min-height: calc(100vh - 56px);
+      display: grid;
+      place-items: center;
+      padding: 54px 20px 80px;
+      position: relative;
+      overflow: hidden;
+      isolation: isolate;
+    }
+    .login-page::before,
+    .login-page::after {
+      content: "";
+      position: absolute;
+      pointer-events: none;
+      border-radius: 50%;
+      z-index: -1;
+    }
+    .login-page::before {
+      width: 620px;
+      height: 620px;
+      left: 50%;
+      top: 45%;
+      transform: translate(-50%, -50%);
+      background: radial-gradient(circle, rgba(34,197,94,.13) 0%, rgba(34,197,94,.045) 34%, transparent 70%);
+      filter: blur(8px);
+    }
+    .login-page::after {
+      width: 280px;
+      height: 280px;
+      right: -100px;
+      bottom: -120px;
+      background: radial-gradient(circle, rgba(34,197,94,.09), transparent 70%);
+    }
+    .login-card {
+      width: min(100%, 430px);
+      position: relative;
+      padding: 38px;
+      border: 1px solid rgba(255,255,255,.08);
+      border-radius: 22px;
+      background: linear-gradient(145deg, rgba(25,25,25,.97), rgba(13,13,13,.97));
+      box-shadow: 0 30px 90px rgba(0,0,0,.55), 0 0 0 1px rgba(255,255,255,.025) inset, 0 0 70px rgba(34,197,94,.06);
+    }
+    .login-card::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      pointer-events: none;
+      background: linear-gradient(135deg, rgba(255,255,255,.045), transparent 35%, transparent 70%, rgba(34,197,94,.035));
+    }
+    .login-brand {
+      position: relative;
+      text-align: center;
+      margin-bottom: 32px;
+    }
+    .login-logo {
+      display: inline-block;
+      color: #fff;
+      text-decoration: none;
+      font-size: 31px;
+      line-height: 1;
+      font-weight: 850;
+      letter-spacing: -1.5px;
+    }
+    .login-logo span { color: #22c55e; }
+    .login-brand h1 {
+      margin: 25px 0 8px;
+      color: #fff;
+      font-size: 27px;
+      line-height: 1.15;
+      letter-spacing: -.7px;
+    }
+    .login-brand p {
+      margin: 0;
+      color: #858585;
+      font-size: 14px;
+    }
+    .login-form {
+      position: relative;
+      display: grid;
+      gap: 18px;
+    }
+    .login-field { display: grid; gap: 8px; }
+    .login-field label {
+      color: #d0d0d0;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: .2px;
+    }
+    .login-field input[type="email"],
+    .login-field input[type="password"] {
+      width: 100%;
+      height: 50px;
+      box-sizing: border-box;
+      padding: 0 15px;
+      border: 1px solid #343434;
+      border-radius: 12px;
+      outline: none;
+      background: #111;
+      color: #fff;
+      font: inherit;
+      font-size: 14px;
+      transition: border-color .18s ease, box-shadow .18s ease, background .18s ease, transform .18s ease;
+    }
+    .login-field input::placeholder { color: #5d5d5d; }
+    .login-field input:hover { border-color: #454545; }
+    .login-field input:focus {
+      border-color: #22c55e;
+      background: #141414;
+      box-shadow: 0 0 0 3px rgba(34,197,94,.11), 0 8px 24px rgba(0,0,0,.18);
+    }
+    .remember-row {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      margin-top: -2px;
+      color: #aaa;
+      font-size: 13px;
+      cursor: pointer;
+      user-select: none;
+    }
+    .remember-row input {
+      appearance: none;
+      width: 16px;
+      height: 16px;
+      margin: 0;
+      border: 1px solid #484848;
+      border-radius: 5px;
+      background: #111;
+      cursor: pointer;
+      position: relative;
+      transition: .15s ease;
+    }
+    .remember-row input:checked {
+      border-color: #22c55e;
+      background: #22c55e;
+    }
+    .remember-row input:checked::after {
+      content: "";
+      position: absolute;
+      left: 5px;
+      top: 2px;
+      width: 4px;
+      height: 8px;
+      border: solid #07130b;
+      border-width: 0 2px 2px 0;
+      transform: rotate(45deg);
+    }
+    .login-submit {
+      width: 100%;
+      height: 50px;
+      margin-top: 3px;
+      border: 0;
+      border-radius: 12px;
+      background: linear-gradient(135deg, #28d96a, #16b954);
+      color: #061109;
+      font-size: 14px;
+      font-weight: 800;
+      cursor: pointer;
+      box-shadow: 0 12px 30px rgba(34,197,94,.17);
+      transition: transform .18s ease, box-shadow .18s ease, filter .18s ease;
+    }
+    .login-submit:hover {
+      transform: translateY(-1px);
+      filter: brightness(1.05);
+      box-shadow: 0 15px 34px rgba(34,197,94,.24);
+    }
+    .login-submit:active { transform: translateY(0); }
+    .login-submit:disabled { opacity: .65; cursor: wait; transform: none; }
+    .login-card .error {
+      position: relative;
+      margin: 0 0 18px;
+      border-radius: 10px;
+    }
+    .login-footer {
+      position: relative;
+      margin: 25px 0 0;
+      padding-top: 22px;
+      border-top: 1px solid rgba(255,255,255,.07);
+      text-align: center;
+      color: #777;
+      font-size: 13px;
+    }
+    .login-footer a { color: #35d96f; font-weight: 700; text-decoration: none; }
+    .login-footer a:hover { color: #6bea97; text-decoration: underline; }
+    @media (max-width: 600px) {
+      .login-page { padding: 30px 14px 55px; }
+      .login-card { padding: 29px 21px; border-radius: 18px; }
+      .login-brand h1 { font-size: 24px; }
+    }
+  </style>
 </head>
 <body>
   <nav class="navbar" id="clipnow-navbar">
-  <a href="index.html" class="logo">Clip<span>Now</span></a>
-
-  <div class="nav-center">
-    <a href="index.html" id="nav-explore">Explore</a>
-    <a href="upload.html" id="nav-upload">Upload</a>
-    <a href="search.html" id="nav-search">Search</a>
-    <a href="profile.html" id="nav-profile">Profile</a>
-    <a href="download.html" id="nav-download">Download</a>
-  </div>
-
-  <div class="nav-right">
-    <a href="login.html" id="nav-login" class="btn btn-primary">Sign in</a>
-    <div id="nav-user">
-      <a href="inbox.html" class="inbox-icon" title="Inbox" aria-label="Inbox">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M4 4h16v16H4z"></path>
-          <path d="M4 9h5l2 3h2l2-3h5"></path>
-        </svg>
-      </a>
-      <a href="profile.html" id="nav-username" class="nav-username"></a>
-      <button type="button" onclick="logout()" class="btn btn-outline">Logout</button>
+    <a href="index.html" class="logo">Clip<span>Now</span></a>
+    <div class="nav-center">
+      <a href="index.html" id="nav-explore">Explore</a>
+      <a href="upload.html" id="nav-upload">Upload</a>
+      <a href="search.html" id="nav-search">Search</a>
+      <a href="profile.html" id="nav-profile">Profile</a>
+      <a href="download.html" id="nav-download">Download</a>
     </div>
-  </div>
-</nav>
-
-  <div class="auth-wrap">
-    <h1>Sign in</h1>
-    <p class="subtitle">Welcome back to ClipNow</p>
-    <div id="error" class="error"></div>
-    <form id="form">
-      <label>Email</label>
-      <input type="email" id="email" placeholder="you@example.com" required>
-      <label>Password</label>
-      <input type="password" id="password" placeholder="Your password" required>
-      <div class="checkbox-row">
-        <input type="checkbox" id="remember" checked>
-        <label for="remember" style="margin:0;color:#ccc;">Remember me</label>
+    <div class="nav-right">
+      <a href="login.html" id="nav-login" class="btn btn-primary">Sign in</a>
+      <div id="nav-user">
+        <a href="inbox.html" class="inbox-icon" title="Inbox" aria-label="Inbox">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 4h16v16H4z"></path>
+            <path d="M4 9h5l2 3h2l2-3h5"></path>
+          </svg>
+        </a>
+        <a href="profile.html" id="nav-username" class="nav-username"></a>
+        <button type="button" onclick="logout()" class="btn btn-outline">Logout</button>
       </div>
-      <button type="submit" id="btn" class="auth-submit">Sign in</button>
-    </form>
-    <p class="footer-note">No account? <a href="signup.html">Create one</a></p>
-  </div>
+    </div>
+  </nav>
+
+  <main class="login-page">
+    <section class="login-card" aria-labelledby="login-title">
+      <div class="login-brand">
+        <a href="index.html" class="login-logo">Clip<span>Now</span></a>
+        <h1 id="login-title">Welcome back</h1>
+        <p>Sign in to continue to ClipNow</p>
+      </div>
+
+      <div id="error" class="error"></div>
+
+      <form id="form" class="login-form">
+        <div class="login-field">
+          <label for="email">Email</label>
+          <input type="email" id="email" placeholder="you@example.com" autocomplete="email" required>
+        </div>
+        <div class="login-field">
+          <label for="password">Password</label>
+          <input type="password" id="password" placeholder="Your password" autocomplete="current-password" required>
+        </div>
+        <label class="remember-row" for="remember">
+          <input type="checkbox" id="remember" checked>
+          <span>Remember me</span>
+        </label>
+        <button type="submit" id="btn" class="login-submit">Sign in</button>
+      </form>
+
+      <p class="login-footer">No account? <a href="signup.html">Create one</a></p>
+    </section>
+  </main>
 
   <script src="app.js"></script>
   <script>
