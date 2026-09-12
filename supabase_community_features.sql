@@ -3,6 +3,7 @@
 
 alter table public.profiles add column if not exists verified boolean not null default false;
 alter table public.profiles add column if not exists banner_url text;
+alter table public.clips add column if not exists tags text[] default '{}'::text[];
 
 alter table public.comments add column if not exists parent_id uuid;
 
@@ -72,3 +73,14 @@ drop trigger if exists comments_notification_trigger on public.comments;
 create trigger comments_notification_trigger
 after insert on public.comments
 for each row execute function public.create_comment_notification();
+
+-- Banner files live in clips/<user-id>/banner.*
+drop policy if exists "Authenticated users can upload profile banners" on storage.objects;
+create policy "Authenticated users can upload profile banners"
+on storage.objects for insert to authenticated
+with check (bucket_id='clips' and (storage.foldername(name))[2]='banner' and (storage.foldername(name))[1]=(select auth.uid()::text));
+drop policy if exists "Authenticated users can update profile banners" on storage.objects;
+create policy "Authenticated users can update profile banners"
+on storage.objects for update to authenticated
+using (bucket_id='clips' and (storage.foldername(name))[2]='banner' and (storage.foldername(name))[1]=(select auth.uid()::text))
+with check (bucket_id='clips' and (storage.foldername(name))[2]='banner' and (storage.foldername(name))[1]=(select auth.uid()::text));
