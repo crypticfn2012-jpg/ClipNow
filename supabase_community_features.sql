@@ -79,7 +79,7 @@ for each row execute function public.create_comment_notification();
 drop policy if exists "Authenticated users can upload profile banners" on storage.objects;
 create policy "Authenticated users can upload profile banners"
 on storage.objects for insert to authenticated
-with check (bucket_id='clips' and (storage.foldername(name))[1]=(select auth.uid()::text) and split_part((storage.filename(name)),'/',1)='banner');
+with check (bucket_id='clips' and (storage.foldername(name))[1]=(select auth.uid()::text) and storage.filename(name) like 'banner.%');
 drop policy if exists "Authenticated users can update profile banners" on storage.objects;
 create policy "Authenticated users can update profile banners"
 on storage.objects for update to authenticated
