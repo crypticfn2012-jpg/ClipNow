@@ -124,7 +124,7 @@ async function showFollowersList(userId, type) {
     if (document.getElementById("clipnow-verification-styles")) return;
     const style = document.createElement("style");
     style.id = "clipnow-verification-styles";
-    style.textContent = `.clipnow-verified{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;margin-left:7px;border-radius:50%;background:#22c55e;color:#07140b;font-size:11px;font-weight:900;vertical-align:middle;box-shadow:0 0 10px rgba(34,197,94,.22)}`;
+    style.textContent = `.clipnow-verified{display:inline-flex;align-items:center;justify-content:center;width:19px;height:19px;margin-left:7px;border-radius:50%;background:#1d9bf0;color:#fff;font-size:13px;font-family:Arial,sans-serif;font-weight:900;line-height:19px;vertical-align:middle;box-shadow:0 1px 5px rgba(29,155,240,.28)}`;
     document.head.appendChild(style);
   }
   window.addEventListener("load", async () => {
