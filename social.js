@@ -88,3 +88,44 @@ async function showFollowersList(userId, type) {
     console.error("showFollowersList:", err);
   }
 }
+
+/* Profile moderation is attached here so the existing public profile UI stays unchanged. */
+(function setupProfileModeration() {
+  if (!/profile\.html$/i.test(location.pathname)) return;
+
+  function loadModerationScript() {
+    return new Promise((resolve, reject) => {
+      if (window.ClipNowModeration) return resolve();
+      const script = document.createElement("script");
+      script.src = "moderation.js";
+      script.onload = resolve;
+      script.onerror = () => reject(new Error("Could not load moderation.js"));
+      document.head.appendChild(script);
+    });
+  }
+
+  window.addEventListener("load", async () => {
+    try {
+      await loadModerationScript();
+      if (typeof window.saveProfile !== "function") return;
+      const originalSaveProfile = window.saveProfile;
+      window.saveProfile = async function () {
+        const errorEl = document.getElementById("edit-error");
+        try {
+          ClipNowModeration.assertTextAllowed(document.getElementById("edit-username")?.value || "", "username");
+          ClipNowModeration.assertTextAllowed(document.getElementById("edit-display-name")?.value || "", "username");
+          ClipNowModeration.assertTextAllowed(document.getElementById("edit-bio")?.value || "", "profile");
+        } catch (err) {
+          if (errorEl) {
+            errorEl.textContent = err.message || "That profile text is not allowed.";
+            errorEl.style.display = "block";
+          }
+          return;
+        }
+        return originalSaveProfile();
+      };
+    } catch (err) {
+      console.error("Profile moderation setup:", err);
+    }
+  });
+})();
