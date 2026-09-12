@@ -168,21 +168,117 @@ async function getClipById(id) {
   data.profiles = await getProfileById(data.user_id);
   return { data, error: null };
 }
+async function getPublicMediaUrl(path) {
+  if (!path) return "";
+  try {
+    const { data: signed, error } = await client.storage.from("clips").createSignedUrl(path, 21600);
+    if (!error && signed?.signedUrl) return signed.signedUrl;
+  } catch (_) {}
+  const { data: pub } = client.storage.from("clips").getPublicUrl(path);
+  return pub?.publicUrl || "";
+}
+/** Capture one frame from a File or blob URL → JPEG Blob */
+function captureVideoFrame(source, { maxW = 640 } = {}) {
+  return new Promise((resolve, reject) => {
+    const video = document.createElement("video");
+    video.muted = true;
+    video.playsInline = true;
+    video.crossOrigin = "anonymous";
+    video.preload = "auto";
 
+    const isString = typeof source === "string";
+    const url = isString ? source : URL.createObjectURL(source);
+    let done = false;
+
+    const fail = (msg) => {
+      if (done) return;
+      done = true;
+      if (!isString) try { URL.revokeObjectURL(url); } catch (_) {}
+      reject(new Error(msg || "Thumbnail failed"));
+    };
+
+    const finish = (blob) => {
+      if (done) return;
+      done = true;
+      if (!isString) try { URL.revokeObjectURL(url); } catch (_) {}
+      if (!blob) reject(new Error("Empty thumbnail"));
+      else resolve(blob);
+    };
+
+    video.onerror = () => fail("Could not load video for thumbnail");
+
+    video.onloadedmetadata = () => {
+      const d = Math.max(0.2, video.duration || 1);
+      const t = Math.min(d - 0.05, Math.max(0.05, d * (0.2 + Math.random() * 0.5)));
+      video.onseeked = () => {
+        try {
+          const vw = video.videoWidth || 640;
+          const vh = video.videoHeight || 360;
+          const scale = Math.min(1, maxW / vw);
+          const w = Math.max(1, Math.round(vw * scale));
+          const h = Math.max(1, Math.round(vh * scale));
+          const c = document.createElement("canvas");
+          c.width = w;
+          c.height = h;
+          c.getContext("2d").drawImage(video, 0, 0, w, h);
+          c.toBlob((blob) => finish(blob), "image/jpeg", 0.85);
+        } catch (e) {
+          fail(e.message);
+        }
+      };
+      try {
+        video.currentTime = t;
+      } catch (e) {
+        fail(e.message);
+      }
+    };
+
+    video.src = url;
+    video.load();
+  });
+}
+
+async function uploadThumbnailBlob(userId, blob) {
+  const path = `${userId}/thumbs/${Date.now()}-${Math.floor(Math.random() * 9999)}.jpg`;
+  const { error } = await client.storage.from("clips").upload(path, blob, {
+    contentType: "image/jpeg",
+    upsert: false
+  });
+  if (error) throw error;
+  return path;
+}
+
+/** Generate + save thumbnail for an existing clip row */
+async function ensureClipThumbnail(clip) {
+  if (!clip?.id || !clip.file_path) return clip;
+  if (clip.thumbnail_path) return clip;
+  try {
+    const playUrl = await getClipPlaybackUrl(clip.file_path);
+    if (!playUrl) return clip;
+    const blob = await captureVideoFrame(playUrl);
+    const thumbPath = await uploadThumbnailBlob(clip.user_id, blob);
+    const { error } = await client
+      .from("clips")
+      .update({ thumbnail_path: thumbPath })
+      .eq("id", clip.id);
+    if (error) throw error;
+    clip.thumbnail_path = thumbPath;
+  } catch (e) {
+    console.warn("ensureClipThumbnail", clip.id, e);
+  }
+  return clip;
+}
 async function getClipPlaybackUrl(filePath) {
   if (!filePath) return "";
-
   const { data: signed, error } = await client.storage.from("clips").createSignedUrl(filePath, 21600);
   if (!error && signed?.signedUrl) return signed.signedUrl;
-
   const { data: pub } = client.storage.from("clips").getPublicUrl(filePath);
   return pub?.publicUrl || "";
 }
-
 function clipCardHtml(clip, username) {
   const name = username || clip.profiles?.username || "Unknown";
-  const rainbowTitle = String(clip.title || "").startsWith("[[RAINBOW]]");
-  const cleanTitle = rainbowTitle
+  const rainbow = String(clip.title || "").startsWith("[[RAINBOW]]");
+  const cleanTitle = rainbow
     ? String(clip.title).replace(/^\[\[RAINBOW\]\]\s*/, "").trim()
     : (clip.title || "Untitled");
   const vis = clip.visibility && clip.visibility !== "public" ? ` • ${clip.visibility}` : "";
@@ -192,12 +288,17 @@ function clipCardHtml(clip, username) {
     ? `<span class="rainbow-name">${escapeHtml(name)}</span>${devBadge}`
     : `${escapeHtml(name)}${devBadge}`;
 
+  const thumbPath = clip.thumbnail_path || "";
+  const thumbAttr = thumbPath ? ` data-thumb="${escapeHtml(thumbPath)}"` : "";
+
   return `
     <a href="clip.html?id=${encodeURIComponent(clip.id)}" class="clip-card">
-      <div class="clip-thumb"><span class="play-icon">▶</span></div>
+      <div class="clip-thumb"${thumbAttr}>
+        <span class="play-icon">▶</span>
+      </div>
       <div class="clip-info">
         <div class="clip-title">${
-          rainbowTitle
+          rainbow
             ? `<span class="rainbow-title">${escapeHtml(cleanTitle)}</span>`
             : escapeHtml(cleanTitle)
         }</div>
@@ -205,6 +306,24 @@ function clipCardHtml(clip, username) {
       </div>
     </a>
   `;
+}
+
+/** After rendering cards, load thumb images */
+async function hydrateThumbnails(root = document) {
+  const nodes = [...(root.querySelectorAll ? root.querySelectorAll(".clip-thumb[data-thumb]") : [])];
+  await Promise.all(
+    nodes.map(async (el) => {
+      const path = el.getAttribute("data-thumb");
+      if (!path) return;
+      const url = await getPublicMediaUrl(path);
+      if (!url) return;
+      el.style.backgroundImage = `url("${url}")`;
+      el.style.backgroundSize = "cover";
+      el.style.backgroundPosition = "center";
+      const icon = el.querySelector(".play-icon");
+      if (icon) icon.style.background = "rgba(0,0,0,0.45)";
+    })
+  );
 }
 
 function setupClipNowBranding() {
