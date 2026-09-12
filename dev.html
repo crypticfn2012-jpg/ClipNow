@@ -6,34 +6,152 @@
 <link rel="stylesheet" href="style.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
-.dev-page{max-width:1200px;margin:0 auto;padding:28px 24px}.dev-hero{border:1px solid rgba(34,197,94,.35);background:linear-gradient(135deg,rgba(34,197,94,.10),rgba(20,20,20,.95));border-radius:16px;padding:22px;margin-bottom:18px}.dev-hero h1{font-size:26px}.dev-tag{display:inline-block;margin-top:7px;color:#111;background:linear-gradient(90deg,#22c55e,#86efac);padding:3px 10px;border-radius:999px;font-size:11px;font-weight:800}.dev-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}.dev-card{background:#151515;border:1px solid #292929;border-radius:12px;padding:16px}.dev-card h2{font-size:15px;margin-bottom:12px}.dev-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.dev-input{flex:1;min-width:180px;background:#0e0e0e;border:1px solid #333;border-radius:8px;color:#fff;padding:10px}.dev-list{display:grid;gap:8px;margin-top:12px}.dev-item{background:#1a1a1a;border:1px solid #292929;border-radius:9px;padding:10px}.dev-item-top{display:flex;justify-content:space-between;gap:10px;align-items:center}.dev-item-title{font-weight:600}.dev-meta{color:#777;font-size:11px;margin-top:3px}.danger{border-color:#713838!important;color:#fca5a5!important}.rainbow-preview{font-weight:800;background:linear-gradient(90deg,#f00,#ff0,#0f0,#0ff,#00f,#f0f,#f00);background-size:300%;-webkit-background-clip:text;background-clip:text;color:transparent;animation:devrainbow 2.5s linear infinite}@keyframes devrainbow{to{background-position:300% 0}}@media(max-width:850px){.dev-grid{grid-template-columns:1fr}}
+.dev-page{max-width:1200px;margin:0 auto;padding:28px 24px}
+.dev-hero{border:1px solid rgba(34,197,94,.35);background:linear-gradient(135deg,rgba(34,197,94,.1),rgba(20,20,20,.95));border-radius:16px;padding:22px;margin-bottom:18px}
+.dev-tag{display:inline-block;margin-top:7px;color:#111;background:linear-gradient(90deg,#22c55e,#86efac);padding:3px 10px;border-radius:999px;font-size:11px;font-weight:800}
+.dev-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.dev-card{background:#151515;border:1px solid #292929;border-radius:12px;padding:16px}
+.dev-card h2{font-size:15px;margin-bottom:12px}
+.dev-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.dev-input{flex:1;min-width:140px;background:#0e0e0e;border:1px solid #333;border-radius:8px;color:#fff;padding:10px}
+.dev-list{display:grid;gap:8px;margin-top:12px;max-height:520px;overflow:auto}
+.dev-item{background:#1a1a1a;border:1px solid #292929;border-radius:9px;padding:10px}
+.dev-item-title{font-weight:600}
+.dev-meta{color:#777;font-size:11px;margin-top:3px}
+.danger{border-color:#713838!important;color:#fca5a5!important}
+.ok{color:#4ade80;font-size:12px;margin-top:8px;display:none}
+@media(max-width:850px){.dev-grid{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
-<nav class="navbar"><a href="index.html" class="logo">Clip<span>Now</span></a><div class="nav-center"><a href="index.html" id="nav-explore">Explore</a><a href="upload.html" id="nav-upload">Upload</a><a href="search.html" id="nav-search">Search</a><a href="profile.html" id="nav-profile">Profile</a><a href="download.html" id="nav-download">Download</a></div><div class="nav-right"><a href="login.html" id="nav-login" class="btn btn-primary">Sign in</a><div id="nav-user" style="display:none;align-items:center;gap:12px"><a href="inbox.html" class="inbox-icon" title="Inbox"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 4h16v16H4z"></path><path d="M4 9h5l2 3h2l2-3h5"></path></svg></a><a href="profile.html" id="nav-username" class="nav-username"></a><button class="btn btn-outline" onclick="logout()">Logout</button></div></div></nav>
+<nav class="navbar">
+  <a href="index.html" class="logo">Clip<span>Now</span></a>
+  <div class="nav-center">
+    <a href="index.html" id="nav-explore">Explore</a>
+    <a href="upload.html" id="nav-upload">Upload</a>
+    <a href="search.html" id="nav-search">Search</a>
+    <a href="profile.html" id="nav-profile">Profile</a>
+    <a href="download.html" id="nav-download">Download</a>
+  </div>
+  <div class="nav-right">
+    <a href="login.html" id="nav-login" class="btn btn-primary">Sign in</a>
+    <div id="nav-user" style="display:none;align-items:center;gap:12px">
+      <a href="profile.html" id="nav-username" class="nav-username"></a>
+      <button class="btn btn-outline" onclick="logout()">Logout</button>
+    </div>
+  </div>
+</nav>
 <main class="dev-page">
-<div class="dev-hero"><h1>ClipNow DEV Console</h1><div class="dev-tag">PRIVATE DEV MODE</div><p class="page-sub" style="margin-top:10px">Owner tools for managing clips and customizing your developer profile. Access is shown only when your ClipNow profile has <b>is_dev = true</b>.</p></div>
-<div id="denied" class="error"></div>
-<div id="panel" style="display:none">
-<div class="dev-grid">
-<section class="dev-card"><h2>Clip moderation</h2><div class="dev-row"><input id="search" class="dev-input" placeholder="Search clip titles..."><button class="btn btn-green" id="searchBtn">Search</button></div><div id="clips" class="dev-list"></div></section>
-<section class="dev-card"><h2>Developer profile</h2><div class="dev-row"><button class="btn btn-outline" id="rainbowName">Toggle rainbow name</button><button class="btn btn-outline" id="refreshProfile">Refresh</button></div><p class="page-sub" style="margin-top:10px">Your profile already gets the DEV badge. Rainbow name is stored locally for your browser and does not change other users' accounts.</p><div id="namePreview" class="rainbow-preview" style="font-size:22px;margin-top:10px">ClipNow Developer</div></section>
-<section class="dev-card"><h2>Quick tools</h2><div class="dev-row"><a class="btn btn-outline" href="editor.html">Open editor</a><a class="btn btn-outline" href="upload.html">Upload</a><a class="btn btn-outline" href="inbox.html">Inbox</a></div></section>
-<section class="dev-card"><h2>Safety</h2><p class="page-sub">These buttons use your normal Supabase client and therefore still obey your database RLS policies. No service-role key is exposed in the browser.</p></section>
-</div>
-</div>
+  <div class="dev-hero">
+    <h1>ClipNow DEV Console</h1>
+    <div class="dev-tag">PRIVATE DEV MODE</div>
+    <p class="page-sub" style="margin-top:10px">Real tools. Requires is_dev=true + RLS.</p>
+  </div>
+  <div id="denied" class="error" style="display:none"></div>
+  <div id="msg" class="ok"></div>
+  <div id="panel" style="display:none">
+    <div class="dev-grid">
+      <section class="dev-card">
+        <h2>Clip moderation</h2>
+        <div class="dev-row">
+          <input id="search" class="dev-input" placeholder="Search titles...">
+          <button class="btn btn-green" id="searchBtn">Search</button>
+        </div>
+        <div id="clips" class="dev-list"></div>
+      </section>
+      <section class="dev-card">
+        <h2>Owner cosmetics (everyone sees these)</h2>
+        <div class="dev-row">
+          <button class="btn btn-green" id="toggleRainbowName">Toggle rainbow name</button>
+          <button class="btn btn-green" id="toggleGalaxy">Toggle galaxy theme</button>
+        </div>
+        <p id="cosmeticStatus" class="page-sub" style="margin-top:10px"></p>
+        <div class="dev-row" style="margin-top:12px">
+          <a class="btn btn-outline" href="profile.html">View my profile</a>
+          <a class="btn btn-outline" href="upload.html">Upload</a>
+        </div>
+      </section>
+    </div>
+  </div>
 </main>
 <script src="app.js"></script>
 <script>
-let devProfile=null;
-const denied=document.getElementById("denied"),panel=document.getElementById("panel"),clipsBox=document.getElementById("clips");
-function showDenied(m){denied.textContent=m;denied.style.display="block";panel.style.display="none"}
-async function checkDev(){const u=await getCurrentUser();if(!u){showDenied("Sign in first.");return false}const p=await getProfileById(u.id);if(!p?.is_dev){showDenied("DEV access denied.");return false}devProfile=p;panel.style.display="block";denied.style.display="none";return true}
-function rainbowStored(){return localStorage.getItem("clipnow-dev-rainbow-name")==="1"}function updateNamePreview(){document.getElementById("namePreview").className=rainbowStored()?"rainbow-preview":""}
-document.getElementById("rainbowName").onclick=()=>{localStorage.setItem("clipnow-dev-rainbow-name",rainbowStored()?"0":"1");updateNamePreview()}
-document.getElementById("refreshProfile").onclick=async()=>{devProfile=await getProfileById((await getCurrentUser()).id);updateNamePreview()}
-async function loadClips(){clipsBox.innerHTML="<div class='page-sub'>Loading...</div>";const q=document.getElementById("search").value.trim();let query=client.from("clips").select("id,title,views,visibility,user_id,created_at").order("created_at",{ascending:false}).limit(50);if(q)query=query.ilike("title","%"+q+"%");const{data,error}=await query;if(error){clipsBox.innerHTML="<div class='page-sub'>"+escapeHtml(error.message)+"</div>";return}if(!data?.length){clipsBox.innerHTML="<div class='page-sub'>No clips found.</div>";return}clipsBox.innerHTML=data.map(c=>'<div class="dev-item"><div class="dev-item-top"><div><div class="dev-item-title">'+escapeHtml(c.title||"Untitled")+'</div><div class="dev-meta">'+escapeHtml(c.visibility||"public")+" • "+(Number(c.views)||0)+" views"+'</div></div><button class="btn btn-outline danger" data-id="'+c.id+'">Delete</button></div><div class="dev-row" style="margin-top:8px"><input class="dev-input" data-title="'+c.id+'" value="'+escapeHtml(c.title||"Untitled")+'"><button class="btn btn-outline" data-save="'+c.id+'">Save title</button><button class="btn btn-outline" data-rainbow="'+c.id+'">Rainbow</button><select class="dev-input" style="flex:0 0 130px" data-vis="'+c.id+'"><option value="public">public</option><option value="unlisted">unlisted</option><option value="private">private</option></select></div></div>').join("");data.forEach(c=>{const v=document.querySelector('[data-vis="'+c.id+'"]');if(v)v.value=c.visibility||"public"});clipsBox.querySelectorAll("[data-save]").forEach(b=>b.onclick=async()=>{const id=b.dataset.save,inp=document.querySelector('[data-title="'+id+'"]');let title=inp.value.trim()||"Untitled";const{error}=await client.from("clips").update({title}).eq("id",id);if(error)alert(error.message);else loadClips()});clipsBox.querySelectorAll("[data-rainbow]").forEach(b=>b.onclick=async()=>{const id=b.dataset.rainbow,inp=document.querySelector('[data-title="'+id+'"]');let title=inp.value.replace(/^\[\[RAINBOW\]\]/,"").trim()||"Untitled";const{error}=await client.from("clips").update({title:"[[RAINBOW]] "+title}).eq("id",id);if(error)alert(error.message);else loadClips()});clipsBox.querySelectorAll("[data-vis]").forEach(v=>v.onchange=async()=>{const{error}=await client.from("clips").update({visibility:v.value,published_at:v.value==="public"?new Date().toISOString():null}).eq("id",v.dataset.vis);if(error)alert(error.message)});clipsBox.querySelectorAll("[data-id]").forEach(b=>b.onclick=async()=>{if(!confirm("Delete this clip?"))return;const id=b.dataset.id;const{data}=await client.from("clips").select("file_path,user_id").eq("id",id).maybeSingle();if(data?.file_path)await client.storage.from("clips").remove([data.file_path]);const{error}=await client.from("clips").delete().eq("id",id);if(error)alert(error.message);else loadClips()})}
-document.getElementById("searchBtn").onclick=loadClips;document.getElementById("search").onkeydown=e=>{if(e.key==="Enter")loadClips()};(async()=>{if(await checkDev()){updateNamePreview();loadClips()}})();
+let me=null,devProfile=null;
+const denied=document.getElementById("denied"),panel=document.getElementById("panel"),clipsBox=document.getElementById("clips"),msg=document.getElementById("msg");
+function flash(t){msg.textContent=t;msg.style.display="block";setTimeout(()=>msg.style.display="none",2500);}
+function showDenied(m){denied.textContent=m;denied.style.display="block";panel.style.display="none";}
+function updateCosmeticStatus(){
+  const el=document.getElementById("cosmeticStatus");if(!devProfile||!el)return;
+  el.textContent=`rainbow_name=${!!devProfile.rainbow_name} · theme=${devProfile.special_theme||"none"}`;
+  document.body.classList.toggle("theme-galaxy",devProfile.special_theme==="galaxy");
+}
+async function checkDev(){
+  me=await getCurrentUser();
+  if(!me){showDenied("Sign in first.");return false;}
+  devProfile=await getProfile();
+  if(!devProfile?.is_dev){showDenied("DEV access denied. Set is_dev=true in Supabase.");return false;}
+  panel.style.display="block";denied.style.display="none";updateCosmeticStatus();return true;
+}
+async function loadClips(){
+  clipsBox.innerHTML="<div class='page-sub'>Loading...</div>";
+  const q=document.getElementById("search").value.trim();
+  let query=client.from("clips").select("id,title,views,visibility,user_id,created_at,file_path,likes_count").order("created_at",{ascending:false}).limit(80);
+  if(q)query=query.ilike("title","%"+q+"%");
+  const{data,error}=await query;
+  if(error){clipsBox.innerHTML=`<div class="page-sub" style="color:#f87171">${escapeHtml(error.message)}</div>`;return;}
+  if(!data?.length){clipsBox.innerHTML="<div class='page-sub'>No clips.</div>";return;}
+  clipsBox.innerHTML=data.map(c=>`
+    <div class="dev-item" data-clip="${c.id}">
+      <div class="dev-item-title">${escapeHtml(c.title||"Untitled")}</div>
+      <div class="dev-meta">${escapeHtml(c.visibility)} · ${c.views||0} views · ${c.likes_count||0} likes</div>
+      <div class="dev-row" style="margin-top:8px">
+        <input class="dev-input title-inp" value="${escapeHtml((c.title||"").replace(/^\[\[RAINBOW\]\]\s*/,""))}">
+        <select class="dev-input vis-sel" style="flex:0 0 110px">
+          <option value="public">public</option><option value="unlisted">unlisted</option><option value="private">private</option>
+        </select>
+        <button class="btn btn-outline btn-save">Save</button>
+        <button class="btn btn-outline btn-rainbow">Rainbow title</button>
+        <button class="btn btn-outline danger btn-del">Delete</button>
+        <a class="btn btn-outline" href="clip.html?id=${c.id}">Open</a>
+      </div>
+    </div>`).join("");
+  data.forEach(c=>{
+    const row=clipsBox.querySelector(`[data-clip="${c.id}"]`);if(!row)return;
+    row.querySelector(".vis-sel").value=c.visibility||"public";
+    row.querySelector(".btn-save").onclick=async()=>{
+      const title=row.querySelector(".title-inp").value.trim()||"Untitled";
+      const visibility=row.querySelector(".vis-sel").value;
+      const{error}=await client.from("clips").update({title,visibility,published_at:visibility==="public"?new Date().toISOString():null}).eq("id",c.id);
+      if(error)alert(error.message);else{flash("Saved");loadClips();}
+    };
+    row.querySelector(".btn-rainbow").onclick=async()=>{
+      let title=row.querySelector(".title-inp").value.replace(/^\[\[RAINBOW\]\]\s*/,"").trim()||"Untitled";
+      const{error}=await client.from("clips").update({title:"[[RAINBOW]] "+title}).eq("id",c.id);
+      if(error)alert(error.message);else{flash("Rainbow title set");loadClips();}
+    };
+    row.querySelector(".btn-del").onclick=async()=>{
+      if(!confirm("Delete forever?"))return;
+      if(c.file_path)await client.storage.from("clips").remove([c.file_path]);
+      const{error}=await client.from("clips").delete().eq("id",c.id);
+      if(error)alert(error.message);else{flash("Deleted");loadClips();}
+    };
+  });
+}
+document.getElementById("searchBtn").onclick=loadClips;
+document.getElementById("search").onkeydown=e=>{if(e.key==="Enter")loadClips();};
+document.getElementById("toggleRainbowName").onclick=async()=>{
+  const next=!devProfile.rainbow_name;
+  const{data,error}=await client.from("profiles").update({rainbow_name:next}).eq("id",me.id).select("*").maybeSingle();
+  if(error)return alert(error.message);
+  devProfile=data||{...devProfile,rainbow_name:next};updateCosmeticStatus();updateNavbar();flash(next?"Rainbow name ON":"Rainbow name OFF");
+};
+document.getElementById("toggleGalaxy").onclick=async()=>{
+  const next=devProfile.special_theme==="galaxy"?null:"galaxy";
+  const{data,error}=await client.from("profiles").update({special_theme:next}).eq("id",me.id).select("*").maybeSingle();
+  if(error)return alert(error.message);
+  devProfile=data||{...devProfile,special_theme:next};updateCosmeticStatus();flash(next?"Galaxy ON":"Galaxy OFF");
+};
+(async()=>{if(await checkDev())loadClips();})();
 </script>
 </body>
 </html>
