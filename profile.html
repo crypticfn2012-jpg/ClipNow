@@ -122,7 +122,7 @@ async function loadPublishedClips(userId, onlyPublic, username) {
   const box = document.getElementById("published-clips");
   if (error) { box.innerHTML = `<p class="empty">${escapeHtml(error.message)}</p>`; return; }
   if (!data || !data.length) { box.innerHTML = `<p class="empty">No clips yet.</p>`; return; }
-  data.forEach(c => { c.profiles = { username, is_dev: currentProfile?.is_dev, rainbow_name: currentProfile?.rainbow_name }; });
+  data.forEach(c => { c.profiles = { username, is_dev: currentProfile?.is_dev, rainbow_name: currentProfile?.rainbow_name, og_member: currentProfile?.og_member }; });
   box.innerHTML = data.map(clip => clipCardHtml(clip, username)).join("");
   if (typeof hydrateThumbnails === "function") await hydrateThumbnails(box);
 }
@@ -164,7 +164,7 @@ async function showSocialList(type) {
     items.innerHTML = list.length ? list.map(p => {
       const name = p.rainbow_name ? `<span class="rainbow-name">${escapeHtml(p.display_name || p.username)}</span>` : escapeHtml(p.display_name || p.username);
       const avatar = p.avatar_url ? `<img class="avatar-sm" src="${escapeHtml(p.avatar_url)}" alt="">` : `<div class="avatar-sm">${escapeHtml((p.username || "?").charAt(0).toUpperCase())}</div>`;
-      return `<a class="user-card" href="profile.html?user=${encodeURIComponent(p.username)}">${avatar}<div><div style="font-weight:500">${name}${p.is_dev ? ' <span class="dev-badge">DEV</span>' : ""}</div><div style="font-size:13px;color:#888">@${escapeHtml(p.username)}</div></div></a>`;
+      return `<a class="user-card" href="profile.html?user=${encodeURIComponent(p.username)}">${avatar}<div><div style="font-weight:500">${name}${p.is_dev ? ' <span class="dev-badge">DEV</span>' : ""}${p.og_member ? ' <span class="og-badge">OG</span>' : ""}</div><div style="font-size:13px;color:#888">@${escapeHtml(p.username)}</div></div></a>`;
     }).join("") : `<p class="empty">No ${type === "following" ? "following" : "followers"} yet.</p>`;
   } catch (err) {
     items.innerHTML = `<p class="empty">Could not load list.</p>`;
@@ -178,7 +178,7 @@ async function refreshSocialUI() {
 }
 
 async function loadProfile() {
-  document.body.classList.remove("theme-galaxy");
+  document.body.classList.remove("theme-galaxy", "og-profile");
   const me = await getCurrentUser();
   const usernameParam = new URLSearchParams(window.location.search).get("user");
   let profile = null;
@@ -200,13 +200,15 @@ async function loadProfile() {
     return;
   }
   if (profile.special_theme === "galaxy") document.body.classList.add("theme-galaxy");
+  if (profile.og_member === true) document.body.classList.add("og-profile");
   const label = profile.display_name || profile.username;
-  document.getElementById("display-name").innerHTML = (profile.rainbow_name ? `<span class="rainbow-name">${escapeHtml(label)}</span>` : escapeHtml(label)) + (profile.is_dev ? ' <span class="dev-badge">DEV</span>' : "");
+  document.getElementById("display-name").innerHTML = (profile.og_member ? `<span class="og-name">${escapeHtml(label)}</span>` : (profile.rainbow_name ? `<span class="rainbow-name">${escapeHtml(label)}</span>` : escapeHtml(label))) + (profile.is_dev ? ' <span class="dev-badge">DEV</span>' : "") + (profile.og_member ? ' <span class="og-badge">OG</span>' : "");
   document.getElementById("handle").textContent = "@" + profile.username;
   document.getElementById("bio").textContent = profile.bio || "Hey im new to ClipNow";
   setAvatar(profile.avatar_url, profile.username);
   const header = document.getElementById("profile-header");
   if (profile.is_dev) header.classList.add("profile-dev"); else header.classList.remove("profile-dev");
+  if (profile.og_member) header.classList.add("og-profile-header"); else header.classList.remove("og-profile-header");
   await renderSocial(profile);
 
   if (viewingOwnProfile) {
@@ -221,7 +223,7 @@ async function loadProfile() {
   } else {
     document.getElementById("own-actions").classList.add("hidden");
     document.getElementById("saved-section").classList.add("hidden");
-    document.getElementById("profile-stats").textContent = profile.is_dev ? "Developer profile" : "Public profile";
+    document.getElementById("profile-stats").textContent = profile.og_member ? "Original ClipNow member" : (profile.is_dev ? "Developer profile" : "Public profile");
     document.getElementById("published-title").textContent = "Public Clips";
     await loadPublishedClips(profile.id, true, profile.username);
   }
@@ -253,7 +255,8 @@ async function saveProfile() {
     const { data, error } = await client.from("profiles").upsert({
       id:user.id, display_name:displayName || username, username, bio:bio || "Hey im new to ClipNow", avatar_url:avatarUrl,
       storage_used:currentProfile?.storage_used || 0, is_dev:currentProfile?.is_dev === true,
-      rainbow_name:currentProfile?.rainbow_name === true, special_theme:currentProfile?.special_theme || null
+      rainbow_name:currentProfile?.rainbow_name === true, special_theme:currentProfile?.special_theme || null,
+      og_member:currentProfile?.og_member === true
     }).select("*").maybeSingle();
     if (error) throw error;
     currentProfile = data || currentProfile;
