@@ -23,7 +23,7 @@ let me=null;
 function timeAgo(value){const diff=Math.max(0,Date.now()-new Date(value).getTime());const mins=Math.floor(diff/60000);if(mins<1)return "just now";if(mins<60)return `${mins}m ago`;const hours=Math.floor(mins/60);if(hours<24)return `${hours}h ago`;const days=Math.floor(hours/24);if(days<7)return `${days}d ago`;return new Date(value).toLocaleDateString();}
 async function loadInbox(){
   me=await requireLogin();if(!me)return;const box=document.getElementById("inbox-list");
-  const {data:rows,error}=await client.from("notifications").select("id,actor_id,type,clip_id,comment_id,created_at,read_at").eq("recipient_id",me.id).order("created_at",{ascending:false}).limit(100);
+  const {data:rows,error}=await client.from("notifications").select("id,user_id,recipient_id,actor_id,type,clip_id,comment_id,created_at,read_at").or(`user_id.eq.${me.id},recipient_id.eq.${me.id}`).order("created_at",{ascending:false}).limit(100);
   if(error){console.error("loadInbox:",error);box.innerHTML=`<div class="inbox-error">Could not load your inbox.<br><small>${escapeHtml(error.message||"")}</small></div>`;return;}
   if(!rows?.length){box.innerHTML='<div class="inbox-empty">Your inbox is empty.<br>Follow, like or comment on ClipNow to see activity here.</div>';return;}
   const actorIds=[...new Set(rows.map(n=>n.actor_id).filter(Boolean))],clipIds=[...new Set(rows.map(n=>n.clip_id).filter(Boolean))],commentIds=[...new Set(rows.map(n=>n.comment_id).filter(Boolean))];
@@ -44,8 +44,8 @@ async function loadInbox(){
   }).join("");
   await markVisibleRead(rows);
 }
-async function markVisibleRead(rows){const unreadIds=rows.filter(n=>!n.read_at).map(n=>n.id);if(!unreadIds.length)return;const {error}=await client.from("notifications").update({read_at:new Date().toISOString()}).in("id",unreadIds).eq("recipient_id",me.id);if(error){console.warn("mark notifications read:",error);return;}document.querySelectorAll(".notification.unread").forEach(el=>el.classList.remove("unread"));document.querySelectorAll(".notification-dot").forEach(el=>el.remove());document.getElementById("read-all").style.display="none";}
-document.getElementById("read-all").onclick=async()=>{if(!me)return;const {error}=await client.from("notifications").update({read_at:new Date().toISOString()}).eq("recipient_id",me.id).is("read_at",null);if(error){alert(error.message);return;}await loadInbox();};
+async function markVisibleRead(rows){const unreadIds=rows.filter(n=>!n.read_at).map(n=>n.id);if(!unreadIds.length)return;const {error}=await client.from("notifications").update({read_at:new Date().toISOString()}).in("id",unreadIds).or(`user_id.eq.${me.id},recipient_id.eq.${me.id}`);if(error){console.warn("mark notifications read:",error);return;}document.querySelectorAll(".notification.unread").forEach(el=>el.classList.remove("unread"));document.querySelectorAll(".notification-dot").forEach(el=>el.remove());document.getElementById("read-all").style.display="none";}
+document.getElementById("read-all").onclick=async()=>{if(!me)return;const {error}=await client.from("notifications").update({read_at:new Date().toISOString()}).or(`user_id.eq.${me.id},recipient_id.eq.${me.id}`).is("read_at",null);if(error){alert(error.message);return;}await loadInbox();};
 loadInbox();
 </script>
 </body>
