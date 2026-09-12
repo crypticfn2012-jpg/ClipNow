@@ -1,19 +1,97 @@
 -- ClipNow notifications
--- Run this once in Supabase SQL Editor.
--- Creates notifications for follows, clip likes and comments.
+-- Run this once in the Supabase SQL Editor.
+-- This migration is safe to run even if an older notifications table already exists.
 
 create extension if not exists pgcrypto;
 
+-- Create the table if it does not exist.
 create table if not exists public.notifications (
   id uuid primary key default gen_random_uuid(),
-  recipient_id uuid not null references public.profiles(id) on delete cascade,
-  actor_id uuid not null references public.profiles(id) on delete cascade,
-  type text not null check (type in ('follow', 'like', 'comment')),
-  clip_id uuid references public.clips(id) on delete cascade,
-  comment_id uuid references public.comments(id) on delete cascade,
+  recipient_id uuid,
+  actor_id uuid,
+  type text,
+  clip_id uuid,
+  comment_id uuid,
   created_at timestamptz not null default now(),
   read_at timestamptz
 );
+
+-- Repair older/incomplete notifications tables by adding the columns the current app needs.
+alter table public.notifications add column if not exists recipient_id uuid;
+alter table public.notifications add column if not exists actor_id uuid;
+alter table public.notifications add column if not exists type text;
+alter table public.notifications add column if not exists clip_id uuid;
+alter table public.notifications add column if not exists comment_id uuid;
+alter table public.notifications add column if not exists created_at timestamptz;
+alter table public.notifications add column if not exists read_at timestamptz;
+
+-- Give existing rows a timestamp if an old table had a nullable/missing created_at value.
+update public.notifications
+set created_at = now()
+where created_at is null;
+
+alter table public.notifications alter column created_at set default now();
+
+-- Add foreign keys only when the table does not already have an equivalent constraint.
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint
+    where conrelid = 'public.notifications'::regclass
+      and contype = 'f'
+      and pg_get_constraintdef(oid) ilike '%(recipient_id)%'
+  ) then
+    alter table public.notifications
+      add constraint notifications_recipient_id_fkey
+      foreign key (recipient_id) references public.profiles(id) on delete cascade;
+  end if;
+exception when duplicate_object then null;
+end $$;
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint
+    where conrelid = 'public.notifications'::regclass
+      and contype = 'f'
+      and pg_get_constraintdef(oid) ilike '%(actor_id)%'
+  ) then
+    alter table public.notifications
+      add constraint notifications_actor_id_fkey
+      foreign key (actor_id) references public.profiles(id) on delete cascade;
+  end if;
+exception when duplicate_object then null;
+end $$;
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint
+    where conrelid = 'public.notifications'::regclass
+      and contype = 'f'
+      and pg_get_constraintdef(oid) ilike '%(clip_id)%'
+  ) then
+    alter table public.notifications
+      add constraint notifications_clip_id_fkey
+      foreign key (clip_id) references public.clips(id) on delete cascade;
+  end if;
+exception when duplicate_object then null;
+end $$;
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint
+    where conrelid = 'public.notifications'::regclass
+      and contype = 'f'
+      and pg_get_constraintdef(oid) ilike '%(comment_id)%'
+  ) then
+    alter table public.notifications
+      add constraint notifications_comment_id_fkey
+      foreign key (comment_id) references public.comments(id) on delete cascade;
+  end if;
+exception when duplicate_object then null;
+end $$;
 
 create index if not exists notifications_recipient_created_idx
   on public.notifications(recipient_id, created_at desc);
@@ -38,8 +116,7 @@ on public.notifications for update to authenticated
 using (recipient_id = auth.uid())
 with check (recipient_id = auth.uid());
 
--- Trigger functions use SECURITY DEFINER so users cannot forge notifications
--- or bypass the notification recipient/actor rules.
+-- Trigger functions use SECURITY DEFINER so users cannot forge notifications.
 create or replace function public.create_follow_notification()
 returns trigger
 language plpgsql
@@ -72,7 +149,6 @@ declare
   owner_id uuid;
 begin
   select user_id into owner_id from public.clips where id = new.clip_id;
-
   if owner_id is not null and owner_id <> new.user_id then
     insert into public.notifications (recipient_id, actor_id, type, clip_id)
     values (owner_id, new.user_id, 'like', new.clip_id);
@@ -96,7 +172,6 @@ declare
   owner_id uuid;
 begin
   select user_id into owner_id from public.clips where id = new.clip_id;
-
   if owner_id is not null and owner_id <> new.user_id then
     insert into public.notifications (recipient_id, actor_id, type, clip_id, comment_id)
     values (owner_id, new.user_id, 'comment', new.clip_id, new.id);
