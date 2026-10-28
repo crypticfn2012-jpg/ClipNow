@@ -21,6 +21,7 @@
     playbackWall: 0,
     raf: 0,
     currentVisualAsset: null,
+    currentVisualItemId: null,
     history: [],
     future: [],
     audioContext: null,
@@ -839,11 +840,13 @@
     const visual = activeItem("visual", time);
     const visibleAsset = visual ? assetFor(visual) : null;
     const visibleVideoId = visibleAsset && visibleAsset.type === "video" ? visibleAsset.id : null;
+    const visibleVideoItemId = visibleVideoId && visual ? visual.id : null;
     if (state.currentVisualAsset && state.currentVisualAsset !== visibleVideoId) {
       const prior = state.assets.get(state.currentVisualAsset);
       if (prior && prior.element && prior.type === "video") prior.element.pause();
     }
     state.currentVisualAsset = visibleVideoId;
+    state.currentVisualItemId = visibleVideoItemId;
     const activeAudioIds = new Set();
     const activeAssets = new Map();
     if (visual && visibleAsset && visibleAsset.type === "video") {
@@ -930,7 +933,8 @@
     const visual = activeItem("visual", state.time);
     const asset = visual ? assetFor(visual) : null;
     applyAudioLevels(state.time);
-    if ((asset && asset.type === "video" ? asset.id : null) !== state.currentVisualAsset) syncMedia(state.time, true);
+    if ((asset && asset.type === "video" ? asset.id : null) !== state.currentVisualAsset ||
+        (asset && asset.type === "video" ? visual.id : null) !== state.currentVisualItemId) syncMedia(state.time, true);
     else {
       // Keep audio layers aligned while allowing the browser to decode video continuously.
       state.project.items.forEach(item => {
