@@ -1,745 +1,185 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>ClipNow Editor [STILL IN BETA]</title>
-<link rel="stylesheet" href="style.css">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<style>
-.ed{max-width:1500px;margin:0 auto;padding:12px 16px 40px}
-.ed-top{display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
-.ed-tools{display:flex;gap:6px;flex-wrap:wrap}
-.ed-btn{background:#191919;color:#ddd;border:1px solid #303030;border-radius:8px;padding:8px 11px;cursor:pointer;font-size:13px}
-.ed-btn:hover{background:#242424}
-.ed-btn.green{background:#15803d;border-color:#22c55e;color:#fff}
-.ed-btn:disabled{opacity:.55;cursor:not-allowed}
-.ed-grid{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:12px}
-.ed-card{background:#141414;border:1px solid #292929;border-radius:12px;padding:12px;margin-bottom:10px}
-.stage{background:#080808;border-radius:9px;overflow:hidden}
-.stage canvas{width:100%;aspect-ratio:16/9;display:block;background:#000}
-.stage-bar{display:flex;justify-content:space-between;align-items:center;padding:8px 2px;color:#888;font-size:12px}
-.tl-wrap{overflow:auto;border:1px solid #242424;border-radius:8px;background:#0b0b0b}
-.tl{position:relative;min-width:1100px;height:220px}
-.tl-ruler{position:absolute;left:0;right:0;top:0;height:24px;border-bottom:1px solid #222;background:repeating-linear-gradient(to right,transparent 0,transparent 49px,#222 50px)}
-.tl-ruler span{position:absolute;top:3px;font-size:10px;color:#666}
-.tl-lane{position:absolute;left:0;right:0;border-top:1px solid #191919}
-.tl-lane.video{top:24px;height:78px}
-.tl-lane.overlay{top:102px;height:54px}
-.tl-lane.audio{top:156px;height:54px}
-.tl-label{position:absolute;left:6px;font-size:9px;color:#555;z-index:2}
-.tl-block{position:absolute;border-radius:7px;color:#fff;font-size:10px;overflow:hidden;cursor:grab;user-select:none;padding:4px 6px}
-.tl-video{top:36px;height:50px;background:#17643d;border:1px solid #2b9a63}
-.tl-overlay{top:112px;height:28px;background:#334155;border:1px solid #64748b}
-.tl-audio{top:166px;height:28px;background:#3f3b78;border:1px solid #7066d6}
-.tl-block.selected{outline:2px solid #fff}
-.trim-edge{position:absolute;top:0;bottom:0;width:8px;background:rgba(255,255,255,.2);cursor:ew-resize}
-.trim-l{left:0}.trim-r{right:0}
-.ph{position:absolute;top:0;bottom:0;width:2px;background:#ef4444;z-index:10}
-.ph:before{content:"";position:absolute;top:0;left:-5px;border-left:6px solid transparent;border-right:6px solid transparent;border-top:8px solid #ef4444}
-.field{margin-bottom:9px}
-.field label{display:block;color:#888;font-size:11px;margin-bottom:4px}
-.field input,.field select,.field textarea{width:100%;box-sizing:border-box;background:#0e0e0e;border:1px solid #333;color:#fff;border-radius:7px;padding:8px}
-.two{display:grid;grid-template-columns:1fr 1fr;gap:7px}
-.hint{font-size:11px;color:#707070;line-height:1.4}
-.sticker-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:4px}
-.sticker-grid button{background:#191919;border:1px solid #303030;border-radius:7px;padding:6px;cursor:pointer}
-.ins{max-height:calc(100vh - 90px);overflow:auto}
-@media(max-width:1000px){.ed-grid{grid-template-columns:1fr}}
-</style>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#090909">
+  <title>Editor — ClipNow</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="editor.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
-<body>
-<nav class="navbar">
-  <a href="index.html" class="logo">Clip<span>Now</span></a>
-  <div class="nav-center">
-    <a href="index.html" id="nav-explore">Explore</a>
-    <a href="upload.html" id="nav-upload">Upload</a>
-    <a href="search.html" id="nav-search">Search</a>
-    <a href="profile.html" id="nav-profile">Profile</a>
-    <a href="download.html" id="nav-download">Download</a>
-  </div>
-  <div class="nav-right">
-    <a href="login.html" id="nav-login" class="btn btn-primary">Sign in</a>
-    <div id="nav-user" style="display:none;align-items:center;gap:12px">
-      <a href="profile.html" id="nav-username" class="nav-username"></a>
-      <button class="btn btn-outline" onclick="logout()">Logout</button>
+<body class="editor-page">
+  <nav class="navbar" id="clipnow-navbar">
+    <a href="index.html" class="logo">Clip<span>Now</span></a>
+    <div class="nav-center">
+      <a href="index.html" id="nav-explore">Explore</a>
+      <a href="upload.html" id="nav-upload">Upload</a>
+      <a href="search.html" id="nav-search">Search</a>
+      <a href="profile.html" id="nav-profile">Profile</a>
+      <a href="editor.html" id="nav-editor" class="editor-nav-active">Editor</a>
     </div>
-  </div>
-</nav>
-
-<main class="ed">
-  <div class="ed-top">
-    <div>
-      <h1 class="page-title">ClipNow Editor</h1>
-      <p class="page-sub">Mini CapCut: timeline, trim, cut, text, stickers, filters, speed, transitions, export.</p>
-    </div>
-    <div class="ed-tools">
-      <label class="ed-btn">Add video<input id="videos" type="file" accept="video/*" multiple hidden></label>
-      <label class="ed-btn">Add image<input id="images" type="file" accept="image/*" multiple hidden></label>
-      <label class="ed-btn">Add sound<input id="sounds" type="file" accept="audio/*" multiple hidden></label>
-      <button class="ed-btn" id="cut">Split</button>
-      <button class="ed-btn" id="del">Delete</button>
-      <button class="ed-btn" id="undo">Undo</button>
-      <button class="ed-btn" id="redo">Redo</button>
-      <button class="ed-btn green" id="export">Export</button>
-    </div>
-  </div>
-  <div id="err" class="error"></div>
-
-  <div class="ed-grid">
-    <section>
-      <div class="ed-card">
-        <div class="stage"><canvas id="cv" width="1280" height="720"></canvas></div>
-        <div class="stage-bar"><span id="clock">0:00 / 0:00</span><span id="sel">Nothing selected</span></div>
-        <div class="ed-tools">
-          <button class="ed-btn" id="play">Play</button>
-          <button class="ed-btn" id="pause">Pause</button>
-          <button class="ed-btn" id="home">Start</button>
-        </div>
+    <div class="nav-right">
+      <a href="login.html" id="nav-login" class="btn btn-primary">Sign in</a>
+      <div id="nav-user" style="display:none;align-items:center;gap:12px">
+        <a href="profile.html" id="nav-username" class="nav-username"></a>
+        <button type="button" class="btn btn-outline" onclick="logout()">Logout</button>
       </div>
-      <div class="ed-card">
-        <div style="display:flex;justify-content:space-between;margin-bottom:8px">
-          <strong style="font-size:13px">Timeline</strong>
-          <span class="hint">Drag blocks · edges to trim · click to seek</span>
+    </div>
+  </nav>
+
+  <header class="editor-topbar">
+    <div class="editor-project-name">
+      <span class="editor-app-mark">CN</span>
+      <div class="editor-project-label">
+        <label for="projectName">PROJECT</label>
+        <input id="projectName" value="Untitled project" maxlength="80" aria-label="Project name">
+      </div>
+      <span class="editor-save-status" id="saveStatus">Local project</span>
+    </div>
+    <div class="editor-top-actions">
+      <button class="ed-action" id="undoBtn" title="Undo (Ctrl+Z)" disabled>↶ <span>Undo</span></button>
+      <button class="ed-action" id="redoBtn" title="Redo (Ctrl+Y)" disabled>↷ <span>Redo</span></button>
+      <span class="editor-divider"></span>
+      <label class="editor-ratio-label">Canvas
+        <select id="aspectRatio" aria-label="Canvas aspect ratio">
+          <option value="16:9">16:9 Landscape</option>
+          <option value="9:16">9:16 Portrait</option>
+          <option value="1:1">1:1 Square</option>
+          <option value="4:5">4:5 Social</option>
+        </select>
+      </label>
+      <button class="ed-primary" id="openExport">Export video <span aria-hidden="true">↗</span></button>
+    </div>
+  </header>
+
+  <main class="editor-shell">
+    <section class="editor-workspace">
+      <aside class="editor-media-panel">
+        <div class="editor-panel-tabs" role="tablist" aria-label="Editor tools">
+          <button class="editor-tool-tab active" data-panel="mediaPanel" role="tab" aria-selected="true"><span>▧</span> Media</button>
+          <button class="editor-tool-tab" data-panel="textPanel" role="tab" aria-selected="false"><span>T</span> Text</button>
+          <button class="editor-tool-tab" data-panel="audioPanel" role="tab" aria-selected="false"><span>♫</span> Audio</button>
+          <button class="editor-tool-tab" data-panel="stickersPanel" role="tab" aria-selected="false"><span>✦</span> Stickers</button>
         </div>
-        <div class="tl-wrap">
-          <div id="tl" class="tl">
-            <div class="tl-ruler" id="ruler"></div>
-            <div class="tl-lane video"></div>
-            <div class="tl-lane overlay"></div>
-            <div class="tl-lane audio"></div>
-            <span class="tl-label" style="top:28px">VIDEO</span>
-            <span class="tl-label" style="top:106px">OVERLAY</span>
-            <span class="tl-label" style="top:160px">AUDIO</span>
-            <div id="ph" class="ph"></div>
+        <div class="editor-panel-body">
+          <section class="editor-tool-panel active" id="mediaPanel" role="tabpanel">
+            <div class="editor-panel-heading"><div><h2>Media</h2><p>Bring your footage into the project.</p></div></div>
+            <label class="ed-import-button" for="mediaInput"><span class="ed-import-icon">＋</span><span><strong>Import media</strong><small>Video, images and audio</small></span></label>
+            <input id="mediaInput" class="sr-only" type="file" accept="video/*,image/*,audio/*" multiple>
+            <p class="ed-drop-hint">You can also drag files into this panel.</p>
+            <div class="editor-media-tools">
+              <input id="mediaSearch" type="search" placeholder="Search imported media…" aria-label="Search imported media">
+              <select id="mediaFilter" aria-label="Filter media"><option value="all">All media</option><option value="video">Videos</option><option value="image">Images</option><option value="audio">Audio</option></select>
+            </div>
+            <div class="editor-media-list" id="mediaList">
+              <div class="editor-empty"><span>▧</span><strong>Your media library is empty</strong><p>Import a video, screenshot, or music track to get started.</p></div>
+            </div>
+          </section>
+          <section class="editor-tool-panel" id="textPanel" role="tabpanel" hidden>
+            <div class="editor-panel-heading"><div><h2>Text</h2><p>Add titles and captions to your edit.</p></div></div>
+            <div class="ed-form-field"><label for="newText">Text content</label><textarea id="newText" rows="3" maxlength="300" placeholder="Type your caption…">Your text here</textarea></div>
+            <div class="ed-form-grid">
+              <div class="ed-form-field"><label for="newTextSize">Size</label><input id="newTextSize" type="number" min="12" max="180" value="56"></div>
+              <div class="ed-form-field"><label for="newTextColor">Colour</label><input id="newTextColor" type="color" value="#ffffff"></div>
+            </div>
+            <button class="ed-wide-button" id="addTextBtn">＋ Add text to timeline</button>
+            <div class="ed-presets-heading">Quick styles</div>
+            <button class="ed-preset-card" data-text-preset="title"><strong>MAIN TITLE</strong><span>Large, bold headline</span></button>
+            <button class="ed-preset-card" data-text-preset="caption"><strong>Subtitle caption</strong><span>Readable lower-third text</span></button>
+          </section>
+          <section class="editor-tool-panel" id="audioPanel" role="tabpanel" hidden>
+            <div class="editor-panel-heading"><div><h2>Audio</h2><p>Use music, voice recordings and sound effects.</p></div></div>
+            <label class="ed-import-button" for="audioInput"><span class="ed-import-icon">＋</span><span><strong>Import audio</strong><small>MP3, WAV, AAC and more</small></span></label>
+            <input id="audioInput" class="sr-only" type="file" accept="audio/*" multiple>
+            <p class="ed-drop-hint">Imported sound appears in your media library too.</p>
+            <div class="editor-audio-tips"><strong>Audio tips</strong><p>Use the timeline to position a track. Select it to trim the start/end and adjust its volume.</p></div>
+            <button class="ed-wide-button ed-secondary-button" id="jumpToMedia">Open media library</button>
+          </section>
+          <section class="editor-tool-panel" id="stickersPanel" role="tabpanel" hidden>
+            <div class="editor-panel-heading"><div><h2>Stickers</h2><p>Quick reactions for your highlights.</p></div></div>
+            <div class="ed-sticker-grid" id="stickerGrid"></div>
+            <p class="ed-drop-hint">Stickers are separate layers. Select one on the timeline to move, resize or change its duration.</p>
+          </section>
+        </div>
+      </aside>
+
+      <section class="editor-preview-column" aria-label="Video preview">
+        <div class="editor-preview-header">
+          <div><span class="ed-live-dot"></span><span>PREVIEW</span></div>
+          <span id="previewResolution">1280 × 720</span>
+        </div>
+        <div class="editor-stage-wrap" id="stageWrap">
+          <div class="editor-stage" id="stage">
+            <canvas id="previewCanvas" width="1280" height="720" aria-label="Video preview canvas"></canvas>
+            <div class="editor-stage-empty" id="stageEmpty"><div class="stage-empty-icon">▶</div><strong>Your edit starts here</strong><p>Import media, then add it to the timeline.</p></div>
           </div>
         </div>
-      </div>
+        <div class="editor-player-controls">
+          <div class="editor-player-left">
+            <button class="ed-player-btn" id="skipBack" title="Back one second">−1s</button>
+            <button class="ed-play-button" id="playPause" title="Play or pause (Space)"><span id="playIcon">▶</span></button>
+            <button class="ed-player-btn" id="skipForward" title="Forward one second">+1s</button>
+          </div>
+          <div class="editor-time-display"><span id="currentTime">00:00.00</span><span class="editor-time-slash">/</span><span id="totalTime">00:00.00</span></div>
+          <div class="editor-player-right"><span class="editor-preview-hint">Space to play</span><button class="ed-player-btn" id="fitPreview" title="Fit preview">Fit</button></div>
+        </div>
+        <div class="editor-preview-note" id="previewNote">Preview quality adapts to your browser. Export renders your edit at the chosen resolution.</div>
+      </section>
+
+      <aside class="editor-inspector">
+        <div class="editor-inspector-header"><div><h2>Inspector</h2><p id="inspectorSub">Project settings</p></div><button class="ed-icon-button" id="resetProperties" title="Reset selected clip properties">↺</button></div>
+        <div class="editor-inspector-body" id="inspectorBody">
+          <div class="editor-inspector-empty"><span>⌖</span><strong>Select a clip or layer</strong><p>Timing, transform, speed, colour and audio controls will appear here.</p></div>
+        </div>
+      </aside>
     </section>
 
-    <aside class="ins">
-      <div class="ed-card">
-        <h3>Selected clip</h3>
-        <div id="clipIns" class="hint">Select a video on the timeline.</div>
-        <div class="field"><label>Speed <span id="spLab">1.0</span>x</label><input id="speed" type="range" min="0.25" max="3" step="0.05" value="1"></div>
-        <div class="field"><label>Brightness <span id="brLab">0</span></label><input id="bright" type="range" min="-0.5" max="0.5" step="0.05" value="0"></div>
-        <div class="field"><label>Contrast <span id="ctLab">1</span></label><input id="contrast" type="range" min="0.5" max="1.8" step="0.05" value="1"></div>
-        <div class="field"><label>Saturate <span id="stLab">1</span></label><input id="saturate" type="range" min="0" max="2" step="0.05" value="1"></div>
-      </div>
-
-      <div class="ed-card">
-        <h3>Transition</h3>
-        <div class="field">
-          <label>Effect</label>
-          <select id="transition">
-            <option value="none">None</option>
-            <option value="fade">Crossfade</option>
-            <option value="dip">Dip to black</option>
-            <option value="flash">Flash</option>
-            <option value="wipe">Wipe</option>
-          </select>
+    <section class="editor-timeline-dock" aria-label="Editing timeline">
+      <div class="editor-timeline-toolbar">
+        <div class="editor-timeline-title"><strong>Timeline</strong><span id="timelineDuration">0 clips</span></div>
+        <div class="editor-timeline-actions">
+          <button class="ed-action" id="splitBtn" title="Split selected clip at playhead (S)">✂ <span>Split</span></button>
+          <button class="ed-action" id="deleteBtn" title="Delete selected clip (Delete)">⌫ <span>Delete</span></button>
+          <span class="editor-divider"></span>
+          <button class="ed-action" id="saveProjectBtn" title="Save a project file">Save project</button>
+          <label class="ed-action ed-import-project" for="projectInput">Open project<input id="projectInput" type="file" accept=".clipnow.json,application/json" class="sr-only"></label>
+          <span class="editor-zoom-label">Zoom</span><input id="timelineZoom" type="range" min="35" max="180" step="5" value="80" aria-label="Timeline zoom">
+          <button class="ed-icon-button" id="zoomFit" title="Fit entire timeline">⤢</button>
         </div>
-        <div class="field"><label>Duration <span id="td">0.4</span>s</label><input id="tdr" type="range" min=".1" max="1.5" step=".1" value=".4"></div>
       </div>
-
-      <div class="ed-card">
-        <h3>Text</h3>
-        <div class="field"><input id="txt" placeholder="Caption text"></div>
-        <div class="two">
-          <div class="field"><label>X %</label><input id="tx" type="number" value="50"></div>
-          <div class="field"><label>Y %</label><input id="ty" type="number" value="15"></div>
+      <div class="editor-timeline-scroll" id="timelineScroll">
+        <div class="editor-timeline-content" id="timelineContent">
+          <div class="editor-ruler" id="timelineRuler"><div class="editor-track-label ruler-label">TIME</div></div>
+          <div class="editor-track editor-track-video" data-track="visual"><div class="editor-track-label"><span>▣</span> Video</div><div class="editor-track-empty">Drop video or images here</div></div>
+          <div class="editor-track editor-track-overlay" data-track="overlay"><div class="editor-track-label"><span>T</span> Overlay</div><div class="editor-track-empty">Text and stickers</div></div>
+          <div class="editor-track editor-track-audio" data-track="audio"><div class="editor-track-label"><span>♫</span> Audio</div><div class="editor-track-empty">Music and sound</div></div>
+          <div class="editor-playhead" id="timelinePlayhead"><div class="editor-playhead-cap"></div></div>
         </div>
-        <div class="two">
-          <div class="field"><label>Scale</label><input id="ts" type="range" min=".3" max="3" step=".05" value="1"></div>
-          <div class="field"><label>Rotation</label><input id="tr" type="number" value="0"></div>
-        </div>
-        <button class="ed-btn" id="addTxt">Add text</button>
-        <button class="ed-btn" id="keyTxt">Add keyframe</button>
       </div>
+      <div class="editor-timeline-footer"><span id="timelineHint">Drag clips to move them · Drag the ends to trim · Click the ruler to seek</span><span id="timelineStatus">Ready</span></div>
+    </section>
+  </main>
 
-      <div class="ed-card">
-        <h3>Stickers</h3>
-        <div id="stickers" class="sticker-grid"></div>
+  <div class="editor-toast" id="editorToast" role="status" aria-live="polite"></div>
+  <div class="editor-modal-backdrop" id="exportModal" hidden>
+    <section class="editor-export-modal" role="dialog" aria-modal="true" aria-labelledby="exportTitle">
+      <div class="editor-modal-heading"><div><span class="editor-modal-kicker">FINISH YOUR EDIT</span><h2 id="exportTitle">Export video</h2><p>Render a playable video file or save a private copy to ClipNow.</p></div><button class="ed-icon-button" id="closeExport" aria-label="Close export dialog">×</button></div>
+      <div class="editor-export-summary" id="exportSummary"><span>Duration</span><strong id="exportDuration">00:00</strong><span>Format</span><strong>WebM video</strong></div>
+      <div class="ed-form-grid">
+        <div class="ed-form-field"><label for="exportResolution">Resolution</label><select id="exportResolution"><option value="720">720p HD</option><option value="1080" selected>1080p Full HD</option><option value="480">480p</option></select></div>
+        <div class="ed-form-field"><label for="exportBitrate">Quality</label><select id="exportBitrate"><option value="standard">Standard</option><option value="high" selected>High</option><option value="compact">Smaller file</option></select></div>
       </div>
-
-      <div class="ed-card">
-        <h3>Export</h3>
-        <div class="field"><label>Title</label><input id="outTitle" value="Edited Clip"></div>
-        <div class="field"><label>Description</label><textarea id="outDesc"></textarea></div>
-        <p class="hint">Exports WebM via MediaRecorder. Progress shows on the Export button. Originals are not modified.</p>
-      </div>
-    </aside>
+      <div class="ed-form-field"><label for="exportTitle">Video title</label><input id="exportTitle" maxlength="120" value="Edited Clip"></div>
+      <div class="ed-form-field"><label for="exportDescription">Description (optional)</label><textarea id="exportDescription" rows="2" maxlength="2000" placeholder="Write a description for your ClipNow upload…"></textarea></div>
+      <div class="editor-export-progress" id="exportProgress" hidden><div class="editor-progress-line"><span id="exportProgressLabel">Preparing export…</span><strong id="exportPercent">0%</strong></div><div class="editor-progress-bar"><span id="exportProgressFill"></span></div><p>Export runs in real time in your browser. Keep this tab open until it finishes.</p></div>
+      <div class="editor-export-error" id="exportError" hidden role="alert"></div>
+      <div class="editor-export-actions"><button class="ed-action" id="downloadExport">Download .webm</button><button class="ed-primary" id="uploadExport">Upload private to ClipNow</button></div>
+      <p class="editor-export-footnote">Browser export uses WebM. Some browsers may not support every video or audio codec. Original files stay unchanged.</p>
+    </section>
   </div>
-</main>
 
-<script src="app.js"></script>
-<script>
-const S = {
-  clips: [], overlays: [], audios: [], transitions: [],
-  time: 0, selectedClip: null, selectedOverlay: null,
-  playing: false, hist: [], future: [],
-  video: document.createElement("video")
-};
-S.video.muted = true; S.video.playsInline = true; S.video.preload = "auto";
-
-const cv = document.getElementById("cv");
-const cx = cv.getContext("2d");
-const tl = document.getElementById("tl");
-const ph = document.getElementById("ph");
-const clock = document.getElementById("clock");
-const sel = document.getElementById("sel");
-const err = document.getElementById("err");
-
-const uid = () => (crypto.randomUUID ? crypto.randomUUID() : String(Date.now() + Math.random()));
-const fmt = s => Math.floor((s || 0) / 60) + ":" + String(Math.floor((s || 0) % 60)).padStart(2, "0");
-const showErr = m => { err.textContent = m; err.style.display = "block"; };
-const clearErr = () => { err.textContent = ""; err.style.display = "none"; };
-
-function duration() {
-  return Math.max(0,
-    ...S.clips.map(c => c.start + c.length),
-    ...S.overlays.map(o => o.start + o.duration),
-    ...S.audios.map(a => a.start + a.duration),
-    0
-  );
-}
-function scale() { return Math.max(1000, tl.clientWidth || 1000) / Math.max(duration(), 1); }
-function normalize() {
-  S.clips.sort((a, b) => a.start - b.start);
-  let p = 0;
-  S.clips.forEach(c => { c.start = p; c.end = p + c.length; p = c.end; });
-}
-function active() { return S.clips.find(c => S.time >= c.start && S.time < c.start + c.length); }
-
-function snapshot() {
-  return JSON.stringify({
-    clips: S.clips.map(c => ({ ...c })),
-    overlays: S.overlays.map(o => ({ ...o, keyframes: o.keyframes ? [...o.keyframes] : [] })),
-    audios: S.audios.map(a => ({ ...a })),
-    transitions: S.transitions.map(t => ({ ...t })),
-    time: S.time, selectedClip: S.selectedClip, selectedOverlay: S.selectedOverlay
-  });
-}
-function restore(raw) {
-  const x = JSON.parse(raw);
-  S.clips = x.clips; S.overlays = x.overlays; S.audios = x.audios; S.transitions = x.transitions;
-  S.time = x.time; S.selectedClip = x.selectedClip; S.selectedOverlay = x.selectedOverlay;
-  render(); seek(S.time);
-}
-function checkpoint() { S.hist.push(snapshot()); S.future = []; }
-
-document.getElementById("undo").onclick = () => {
-  if (!S.hist.length) return;
-  S.future.push(snapshot());
-  restore(S.hist.pop());
-};
-document.getElementById("redo").onclick = () => {
-  if (!S.future.length) return;
-  S.hist.push(snapshot());
-  restore(S.future.pop());
-};
-
-function loadVideo(url) {
-  S.video.src = url;
-  return new Promise((res, rej) => {
-    if (S.video.readyState >= 1) return res();
-    const ok = () => { cleanup(); res(); };
-    const bad = () => { cleanup(); rej(new Error("Video could not load")); };
-    const cleanup = () => {
-      S.video.removeEventListener("loadedmetadata", ok);
-      S.video.removeEventListener("error", bad);
-    };
-    S.video.addEventListener("loadedmetadata", ok);
-    S.video.addEventListener("error", bad);
-    S.video.load();
-  });
-}
-
-function waitSeeked(video, ms = 900) {
-  return new Promise(resolve => {
-    let done = false;
-    const finish = () => { if (done) return; done = true; video.removeEventListener("seeked", finish); resolve(); };
-    video.addEventListener("seeked", finish);
-    setTimeout(finish, ms);
-  });
-}
-function waitFrame() {
-  return new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
-}
-
-async function addFile(file) {
-  if (!file?.type.startsWith("video/")) return;
-  const v = document.createElement("video");
-  v.src = URL.createObjectURL(file);
-  v.preload = "metadata";
-  await new Promise((r, j) => { v.onloadedmetadata = r; v.onerror = () => j(new Error("Invalid video")); });
-  checkpoint();
-  S.clips.push({
-    id: uid(), name: file.name, url: v.src, source: v.duration,
-    in: 0, out: v.duration, start: duration(), length: v.duration,
-    speed: 1, brightness: 0, contrast: 1, saturate: 1, file
-  });
-  S.selectedClip = S.clips.at(-1).id;
-  normalize();
-  await seek(S.time);
-  render();
-}
-
-async function addCurrent() {
-  const id = new URLSearchParams(location.search).get("id");
-  if (!id) return;
-  const r = await getClipById(id);
-  if (!r.data) throw new Error(r.error?.message || "Clip not found");
-  const url = await getClipPlaybackUrl(r.data.file_path);
-  const v = document.createElement("video");
-  v.src = url; v.preload = "metadata";
-  await new Promise((r, j) => { v.onloadedmetadata = r; v.onerror = () => j(new Error("Clip failed to load")); });
-  checkpoint();
-  S.clips.push({
-    id: uid(), name: r.data.title || "Clip", url, source: v.duration,
-    in: 0, out: v.duration, start: 0, length: v.duration,
-    speed: 1, brightness: 0, contrast: 1, saturate: 1, sourceId: id
-  });
-  S.selectedClip = S.clips.at(-1).id;
-  document.getElementById("outTitle").value = (r.data.title || "Edited Clip") + " (edit)";
-  await seek(0);
-  render();
-}
-
-function interp(o) {
-  if (!o.keyframes?.length) return o;
-  const ks = [...o.keyframes].sort((a, b) => a.time - b.time);
-  if (S.time <= ks[0].time) return { ...o, ...ks[0] };
-  if (S.time >= ks.at(-1).time) return { ...o, ...ks.at(-1) };
-  let a = ks[0], b = ks[1];
-  for (let i = 0; i < ks.length - 1; i++) if (S.time >= ks[i].time && S.time <= ks[i + 1].time) { a = ks[i]; b = ks[i + 1]; break; }
-  const q = (S.time - a.time) / (b.time - a.time || 1);
-  const ler = (x, y) => (typeof x === "number" && typeof y === "number" ? x + (y - x) * q : x);
-  return { ...o, x: ler(a.x, b.x), y: ler(a.y, b.y), scale: ler(a.scale, b.scale), rotation: ler(a.rotation, b.rotation), opacity: ler(a.opacity, b.opacity) };
-}
-
-function draw() {
-  cx.fillStyle = "#000";
-  cx.fillRect(0, 0, 1280, 720);
-  const c = active();
-  if (c && S.video.readyState >= 2) {
-    const br = c.brightness || 0, ct = c.contrast ?? 1, sat = c.saturate ?? 1;
-    cx.filter = `brightness(${1 + br}) contrast(${ct}) saturate(${sat})`;
-    const vw = S.video.videoWidth || 1280, vh = S.video.videoHeight || 720;
-    const scaleFit = Math.min(1280 / vw, 720 / vh);
-    const w = vw * scaleFit, h = vh * scaleFit;
-    cx.drawImage(S.video, (1280 - w) / 2, (720 - h) / 2, w, h);
-    cx.filter = "none";
-
-    // simple transition overlay near clip end
-    const i = S.clips.indexOf(c);
-    const tr = S.transitions[i];
-    if (tr && tr.type !== "none" && i < S.clips.length - 1) {
-      const edge = c.start + c.length - S.time;
-      if (edge >= 0 && edge < (tr.duration || 0.4)) {
-        const a = 1 - edge / (tr.duration || 0.4);
-        if (tr.type === "dip" || tr.type === "fade") {
-          cx.fillStyle = `rgba(0,0,0,${a})`;
-          cx.fillRect(0, 0, 1280, 720);
-        } else if (tr.type === "flash") {
-          cx.fillStyle = `rgba(255,255,255,${a * 0.8})`;
-          cx.fillRect(0, 0, 1280, 720);
-        } else if (tr.type === "wipe") {
-          cx.fillStyle = "#000";
-          cx.fillRect(0, 0, 1280 * a, 720);
-        }
-      }
-    }
-  }
-
-  S.overlays.forEach(raw => {
-    if (S.time < raw.start || S.time > raw.start + raw.duration) return;
-    const o = interp(raw);
-    cx.save();
-    cx.globalAlpha = o.opacity ?? 1;
-    cx.translate(o.x || 0, o.y || 0);
-    cx.rotate(((o.rotation || 0) * Math.PI) / 180);
-    const sc = o.scale || 1;
-    if (o.type === "text") {
-      cx.font = `bold ${Math.round(48 * sc)}px sans-serif`;
-      cx.fillStyle = "#fff";
-      cx.strokeStyle = "#000";
-      cx.lineWidth = 4;
-      cx.textAlign = "center";
-      cx.strokeText(o.value || "", 0, 0);
-      cx.fillText(o.value || "", 0, 0);
-    } else if (o.type === "sticker") {
-      cx.font = `${Math.round((o.size || 58) * sc)}px sans-serif`;
-      cx.textAlign = "center";
-      cx.fillText(o.value || "", 0, 0);
-    } else if (o.type === "image" && o.img) {
-      const w = (o.w || 200) * sc, h = (o.h || 200) * sc;
-      cx.drawImage(o.img, -w / 2, -h / 2, w, h);
-    }
-    cx.restore();
-  });
-
-  clock.textContent = fmt(S.time) + " / " + fmt(duration());
-}
-
-function renderTimeline() {
-  const sc = scale();
-  const dur = Math.max(duration(), 1);
-  tl.style.minWidth = Math.max(1100, dur * sc) + "px";
-  const ruler = document.getElementById("ruler");
-  ruler.innerHTML = "";
-  for (let t = 0; t <= dur + 0.01; t += 1) {
-    const sp = document.createElement("span");
-    sp.style.left = (t * sc + 4) + "px";
-    sp.textContent = fmt(t);
-    ruler.appendChild(sp);
-  }
-  [...tl.querySelectorAll(".tl-block")].forEach(n => n.remove());
-
-  S.clips.forEach(c => {
-    const el = document.createElement("div");
-    el.className = "tl-block tl-video" + (S.selectedClip === c.id ? " selected" : "");
-    el.style.left = (c.start * sc) + "px";
-    el.style.width = Math.max(12, c.length * sc) + "px";
-    el.textContent = c.name || "Video";
-    el.innerHTML += '<div class="trim-edge trim-l"></div><div class="trim-edge trim-r"></div>';
-    el.onmousedown = e => startDragClip(e, c, el);
-    tl.appendChild(el);
-  });
-  S.overlays.forEach(o => {
-    const el = document.createElement("div");
-    el.className = "tl-block tl-overlay" + (S.selectedOverlay === o.id ? " selected" : "");
-    el.style.left = (o.start * sc) + "px";
-    el.style.width = Math.max(12, o.duration * sc) + "px";
-    el.textContent = o.type === "text" ? (o.value || "Text") : (o.value || o.type);
-    el.onmousedown = e => {
-      e.stopPropagation();
-      S.selectedOverlay = o.id; S.selectedClip = null;
-      render();
-    };
-    tl.appendChild(el);
-  });
-  S.audios.forEach(a => {
-    const el = document.createElement("div");
-    el.className = "tl-block tl-audio";
-    el.style.left = (a.start * sc) + "px";
-    el.style.width = Math.max(12, a.duration * sc) + "px";
-    el.textContent = a.name || "Audio";
-    tl.appendChild(el);
-  });
-  ph.style.left = (S.time * sc) + "px";
-}
-
-function startDragClip(e, c, el) {
-  e.preventDefault();
-  S.selectedClip = c.id; S.selectedOverlay = null;
-  const edge = e.target.classList.contains("trim-l") ? "l" : e.target.classList.contains("trim-r") ? "r" : "move";
-  const sc = scale();
-  const startX = e.clientX;
-  const orig = { start: c.start, length: c.length, in: c.in, out: c.out };
-  checkpoint();
-  const move = ev => {
-    const dx = (ev.clientX - startX) / sc;
-    if (edge === "move") {
-      c.start = Math.max(0, orig.start + dx);
-    } else if (edge === "l") {
-      const maxIn = orig.out - 0.1;
-      const newIn = Math.min(maxIn, Math.max(0, orig.in + dx));
-      const delta = newIn - orig.in;
-      c.in = newIn; c.length = orig.length - delta; c.start = orig.start + delta;
-    } else if (edge === "r") {
-      const newOut = Math.min(c.source || orig.out + 10, Math.max(c.in + 0.1, orig.out + dx));
-      c.out = newOut; c.length = c.out - c.in;
-    }
-    renderTimeline();
-  };
-  const up = () => {
-    window.removeEventListener("mousemove", move);
-    window.removeEventListener("mouseup", up);
-    normalize();
-    render();
-  };
-  window.addEventListener("mousemove", move);
-  window.addEventListener("mouseup", up);
-  render();
-}
-
-tl.addEventListener("click", e => {
-  if (e.target.closest(".tl-block")) return;
-  const r = tl.getBoundingClientRect();
-  const t = Math.max(0, Math.min(duration(), (e.clientX - r.left + tl.parentElement.scrollLeft) / scale()));
-  seek(t);
-});
-
-function updateClipInspector() {
-  const c = S.clips.find(x => x.id === S.selectedClip);
-  const box = document.getElementById("clipIns");
-  if (!c) {
-    box.textContent = "Select a video on the timeline.";
-    sel.textContent = "Nothing selected";
-    return;
-  }
-  sel.textContent = "Video: " + (c.name || "clip");
-  box.innerHTML = `<div class="hint">${escapeHtml(c.name || "")}<br>In ${fmt(c.in)} · Out ${fmt(c.out)} · Len ${fmt(c.length)}</div>`;
-  document.getElementById("speed").value = c.speed || 1;
-  document.getElementById("spLab").textContent = Number(c.speed || 1).toFixed(2);
-  document.getElementById("bright").value = c.brightness || 0;
-  document.getElementById("brLab").textContent = Number(c.brightness || 0).toFixed(2);
-  document.getElementById("contrast").value = c.contrast ?? 1;
-  document.getElementById("ctLab").textContent = Number(c.contrast ?? 1).toFixed(2);
-  document.getElementById("saturate").value = c.saturate ?? 1;
-  document.getElementById("stLab").textContent = Number(c.saturate ?? 1).toFixed(2);
-}
-
-function render() {
-  renderTimeline();
-  updateClipInspector();
-  draw();
-}
-
-async function seek(t) {
-  S.time = Math.max(0, Math.min(duration(), t));
-  const c = active();
-  if (c) {
-    if (S.video.src !== c.url) {
-      try { await loadVideo(c.url); } catch (e) { showErr(e.message); }
-    }
-    const speed = c.speed || 1;
-    const local = c.in + (S.time - c.start) * speed;
-    const target = Math.max(c.in, Math.min(c.out - 0.001, local));
-    if (Math.abs((S.video.currentTime || 0) - target) > 0.04) {
-      S.video.currentTime = target;
-      await waitSeeked(S.video);
-    }
-  }
-  draw();
-  renderTimeline();
-}
-
-["speed", "bright", "contrast", "saturate"].forEach(id => {
-  document.getElementById(id).oninput = e => {
-    const c = S.clips.find(x => x.id === S.selectedClip);
-    if (!c) return;
-    if (id === "speed") { c.speed = Number(e.target.value); document.getElementById("spLab").textContent = c.speed.toFixed(2); }
-    if (id === "bright") { c.brightness = Number(e.target.value); document.getElementById("brLab").textContent = c.brightness.toFixed(2); }
-    if (id === "contrast") { c.contrast = Number(e.target.value); document.getElementById("ctLab").textContent = c.contrast.toFixed(2); }
-    if (id === "saturate") { c.saturate = Number(e.target.value); document.getElementById("stLab").textContent = c.saturate.toFixed(2); }
-    draw();
-  };
-});
-
-document.getElementById("videos").onchange = e => [...e.target.files].forEach(f => addFile(f).catch(err => showErr(err.message)));
-document.getElementById("images").onchange = e => {
-  [...e.target.files].forEach(file => {
-    const url = URL.createObjectURL(file);
-    const img = new Image();
-    img.onload = () => {
-      checkpoint();
-      S.overlays.push({ id: uid(), type: "image", img, url, x: 640, y: 360, w: 240, h: 240, scale: 1, rotation: 0, opacity: 1, start: S.time, duration: 4, keyframes: [] });
-      S.selectedOverlay = S.overlays.at(-1).id;
-      render();
-    };
-    img.src = url;
-  });
-};
-document.getElementById("sounds").onchange = e => {
-  [...e.target.files].forEach(file => {
-    checkpoint();
-    const a = document.createElement("audio");
-    a.src = URL.createObjectURL(file);
-    a.onloadedmetadata = () => {
-      S.audios.push({ id: uid(), name: file.name, url: a.src, start: S.time, duration: a.duration || 10, file });
-      render();
-    };
-  });
-};
-
-document.getElementById("addTxt").onclick = () => {
-  checkpoint();
-  S.overlays.push({
-    id: uid(), type: "text", value: document.getElementById("txt").value || "Text",
-    x: 1280 * (Number(document.getElementById("tx").value) / 100),
-    y: 720 * (Number(document.getElementById("ty").value) / 100),
-    scale: Number(document.getElementById("ts").value) || 1,
-    rotation: Number(document.getElementById("tr").value) || 0,
-    opacity: 1, start: S.time, duration: 5, keyframes: []
-  });
-  S.selectedOverlay = S.overlays.at(-1).id;
-  render();
-};
-document.getElementById("keyTxt").onclick = () => {
-  const o = S.overlays.find(x => x.id === S.selectedOverlay && x.type === "text");
-  if (!o) return;
-  checkpoint();
-  o.keyframes = o.keyframes || [];
-  o.keyframes.push({ time: S.time, x: o.x, y: o.y, scale: o.scale, rotation: o.rotation, opacity: o.opacity });
-  render();
-};
-
-["🔥","💯","GG","W","EZ","CLUTCH","1HP","LOL","AIM","WOW"].forEach(v => {
-  const b = document.createElement("button");
-  b.textContent = v;
-  b.onclick = () => {
-    checkpoint();
-    S.overlays.push({ id: uid(), type: "sticker", value: v, x: 640, y: 180, size: 64, scale: 1, rotation: 0, opacity: 1, start: S.time, duration: 4, keyframes: [] });
-    S.selectedOverlay = S.overlays.at(-1).id;
-    render();
-  };
-  document.getElementById("stickers").appendChild(b);
-});
-
-document.getElementById("transition").onchange = () => {
-  const i = S.clips.findIndex(c => c.id === S.selectedClip);
-  if (i < 0 || i >= S.clips.length - 1) return;
-  checkpoint();
-  S.transitions[i] = { type: document.getElementById("transition").value, duration: Number(document.getElementById("tdr").value) };
-};
-document.getElementById("tdr").oninput = e => {
-  document.getElementById("td").textContent = e.target.value;
-  const i = S.clips.findIndex(c => c.id === S.selectedClip);
-  if (i >= 0 && i < S.clips.length - 1) S.transitions[i] = { type: document.getElementById("transition").value, duration: Number(e.target.value) };
-};
-
-document.getElementById("cut").onclick = () => {
-  const c = active();
-  if (!c) return;
-  const local = c.in + (S.time - c.start) * (c.speed || 1);
-  if (local <= c.in + 0.05 || local >= c.out - 0.05) return;
-  checkpoint();
-  const i = S.clips.indexOf(c);
-  const a = { ...c, id: uid(), name: (c.name || "clip") + " A", out: local, length: (local - c.in) / (c.speed || 1) };
-  const b = { ...c, id: uid(), name: (c.name || "clip") + " B", in: local, start: c.start + a.length, length: (c.out - local) / (c.speed || 1) };
-  S.clips.splice(i, 1, a, b);
-  normalize();
-  S.selectedClip = b.id;
-  render();
-};
-
-document.getElementById("del").onclick = () => {
-  checkpoint();
-  if (S.selectedOverlay) {
-    S.overlays = S.overlays.filter(o => o.id !== S.selectedOverlay);
-    S.selectedOverlay = null;
-  } else if (S.selectedClip) {
-    S.clips = S.clips.filter(c => c.id !== S.selectedClip);
-    S.selectedClip = null;
-    normalize();
-  }
-  render();
-};
-
-document.getElementById("play").onclick = async () => {
-  if (!duration()) return;
-  S.playing = true;
-  const tick = async () => {
-    if (!S.playing) return;
-    await seek(Math.min(duration(), S.time + 1 / 30));
-    if (S.time >= duration() - 0.001) { S.playing = false; return; }
-    requestAnimationFrame(tick);
-  };
-  tick();
-};
-document.getElementById("pause").onclick = () => { S.playing = false; };
-document.getElementById("home").onclick = () => seek(0);
-
-async function exportProject() {
-  clearErr();
-  if (!S.clips.length) { showErr("Add a video first."); return; }
-  const mime = ["video/webm;codecs=vp9", "video/webm;codecs=vp8", "video/webm"]
-    .find(x => window.MediaRecorder && MediaRecorder.isTypeSupported(x));
-  if (!mime) { showErr("Export not supported in this browser."); return; }
-
-  const btn = document.getElementById("export");
-  btn.disabled = true;
-  btn.textContent = "Exporting 0%";
-  S.playing = false;
-
-  const total = Math.max(duration(), 0.05);
-  const fps = 24;
-  const step = 1 / fps;
-
-  try {
-    const first = S.clips[0];
-    if (first) {
-      await loadVideo(first.url);
-      S.video.currentTime = first.in || 0;
-      await waitSeeked(S.video);
-    }
-    draw();
-    await waitFrame();
-
-    const stream = cv.captureStream(fps);
-    const rec = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 5_000_000 });
-    const chunks = [];
-    rec.ondataavailable = e => { if (e.data && e.data.size) chunks.push(e.data); };
-    rec.start(200);
-
-    for (let t = 0; t < total; t += step) {
-      S.time = t;
-      const c = active();
-      if (c) {
-        if (S.video.src !== c.url) await loadVideo(c.url);
-        const local = c.in + (t - c.start) * (c.speed || 1);
-        const target = Math.max(c.in, Math.min(c.out - 0.001, local));
-        if (Math.abs((S.video.currentTime || 0) - target) > 0.03) {
-          S.video.currentTime = target;
-          await waitSeeked(S.video);
-        }
-      }
-      draw();
-      await waitFrame();
-      btn.textContent = "Exporting " + Math.min(99, Math.floor((t / total) * 100)) + "%";
-    }
-
-    draw(); await waitFrame(); await waitFrame();
-    const stopped = new Promise(resolve => { rec.onstop = resolve; setTimeout(resolve, 4000); });
-    rec.stop();
-    await stopped;
-    stream.getTracks().forEach(t => t.stop());
-    if (!chunks.length) throw new Error("Export produced empty file.");
-
-    const blob = new Blob(chunks, { type: mime });
-    const user = await getCurrentUser();
-    if (user) {
-      const p = await getProfile();
-      const used = Number(p?.storage_used || 0);
-      if (used + blob.size > MAX_STORAGE) throw new Error("5GB storage limit reached.");
-      const path = user.id + "/edited-" + Date.now() + ".webm";
-      const { error: upErr } = await client.storage.from("clips").upload(path, blob, { contentType: "video/webm", upsert: false });
-      if (upErr) throw upErr;
-      const title = (document.getElementById("outTitle").value || "Edited Clip").trim();
-      const description = (document.getElementById("outDesc").value || "").trim() || null;
-      const { data: row, error: insErr } = await client.from("clips").insert({
-        user_id: user.id, title, description, file_path: path, file_size: blob.size,
-        visibility: "private", views: 0, likes_count: 0, comments_count: 0
-      }).select("id").maybeSingle();
-      if (insErr) throw insErr;
-      await client.from("profiles").update({ storage_used: used + blob.size }).eq("id", user.id);
-      if (row?.id) { location.href = "clip.html?id=" + row.id; return; }
-    }
-
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = ((document.getElementById("outTitle").value || "edited-clip").trim()) + ".webm";
-    a.click();
-    btn.textContent = "Exported";
-  } catch (e) {
-    console.error(e);
-    showErr(e.message || "Export failed");
-    btn.textContent = "Export";
-  } finally {
-    btn.disabled = false;
-  }
-}
-document.getElementById("export").onclick = exportProject;
-
-async function init() {
-  try { await addCurrent(); } catch (e) { showErr(e.message); }
-  normalize();
-  render();
-  if (!new URLSearchParams(location.search).get("id")) seek(0);
-}
-init();
-</script>
+  <script src="app.js"></script>
+  <script src="editor.js"></script>
 </body>
 </html>
