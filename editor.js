@@ -931,37 +931,60 @@
   }
   function playbackTick(now) {
     if (!state.playing) return;
+    const duration = projectDuration();
     const elapsed = Math.max(0, (now - state.playbackWall) / 1000);
-    state.time = Math.min(projectDuration(), state.playbackEpoch + elapsed);
+    const rawTime = state.playbackEpoch + elapsed;
+    const reachedEnd = rawTime >= duration;
+    // Keep the final visible frame inside the last clip's half-open time range.
+    state.time = reachedEnd ? Math.max(0, duration - 1 / 60) : Math.min(duration, rawTime);
+
     const visual = activeItem("visual", state.time);
     const asset = visual ? assetFor(visual) : null;
     applyAudioLevels(state.time);
     if ((asset && asset.type === "video" ? asset.id : null) !== state.currentVisualAsset ||
-        (asset && asset.type === "video" ? visual.id : null) !== state.currentVisualItemId) syncMedia(state.time, true);
-    else {
-      // Keep audio layers aligned while allowing the browser to decode video continuously.
-      state.project.items.forEach(item => {
-        if (item.kind !== "audio") return;
-        const audio = assetFor(item);
-        if (!audio || audio.type !== "audio" || !audio.element) return;
-        const active = state.time >= item.start && state.time < itemEnd(item);
-        if (active && audio.element.paused) {
-          const p = audio.element.play();
-          if (p && p.catch) p.catch(() => {});
-        } else if (!active && !audio.element.paused) audio.element.pause();
-      });
+        (asset && asset.type === "video" ? visual.id : null) !== state.currentVisualItemId) {
+      syncMedia(state.time, true);
+    } else {
       drawFrame();
       updateClock();
     }
-    if (state.time >= projectDuration() - 0.005) {
-      state.time = projectDuration();
+
+    // Start audio precisely at its timeline in-point, including tracks that begin
+    // later than the video. Keep normal playback uninterrupted unless it drifts.
+    state.project.items.forEach(item => {
+      if (item.kind !== "audio") return;
+      const audio = assetFor(item);
+      if (!audio || audio.type !== "audio" || !audio.element) return;
+      const active = state.time >= item.start && state.time < itemEnd(item);
+      if (!active) {
+        if (!audio.element.paused) audio.element.pause();
+        return;
+      }
+      const speed = Math.max(0.25, Number(item.speed) || 1);
+      const target = clamp(item.in + (state.time - item.start) * speed, item.in, Math.max(item.in, item.out - 0.02));
+      const drift = Math.abs((audio.element.currentTime || 0) - target);
+      if (audio.element.paused || drift > 0.8) {
+        try { audio.element.currentTime = target; } catch (_) {}
+        if (audio.element.paused) {
+          const p = audio.element.play();
+          if (p && p.catch) p.catch(() => {});
+        }
+      }
+    });
+
+    if (reachedEnd || state.time >= duration - 0.005) {
+      state.time = Math.max(0, duration - 1 / 60);
       pause();
+      // Show the project end in the clock while leaving the final rendered frame visible.
+      state.time = duration;
+      updateClock();
+      renderTimeline();
       return;
     }
     state.raf = requestAnimationFrame(playbackTick);
   }
 
-  function drawFittedImage(element, fit, x, y, targetW, targetH) {
+    function drawFittedImage(element, fit, x, y, targetW, targetH) {
     const sourceW = element.videoWidth || element.naturalWidth || element.width || 1;
     const sourceH = element.videoHeight || element.naturalHeight || element.height || 1;
     if (!sourceW || !sourceH) return;
