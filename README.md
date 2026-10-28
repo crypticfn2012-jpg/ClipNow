@@ -55,7 +55,7 @@ The site is intentionally simple and client-focused, while Supabase handles auth
 
 ## Upload limits
 
-The current ClipNow upload limit is **50 MB per clip** on the supported Supabase setup.
+The ClipNow upload form accepts clips up to **200 MB per file**. Supabase Storage must also be configured to allow at least 200 MB per object; the browser-side limit alone cannot override the project's server-side bucket limit.
 
 ## Project status
 
