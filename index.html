@@ -3,84 +3,65 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ClipNow</title>
+  <meta name="theme-color" content="#0b0d10">
+  <meta name="description" content="Discover, upload and share your best BuildNow.gg clips on ClipNow. Find creators, watch highlights and share your best plays.">
+  <title>ClipNow — BuildNow.gg Clips</title>
+  <link rel="icon" href="assets/clipnow-logo.svg" type="image/svg+xml">
   <link rel="stylesheet" href="style.css">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
 <nav class="navbar" id="clipnow-navbar">
-  <a href="index.html" class="logo">Clip<span>Now</span></a>
-  <div class="nav-center">
-    <a href="index.html" id="nav-explore">Explore</a>
-    <a href="upload.html" id="nav-upload">Upload</a>
-    <a href="search.html" id="nav-search">Search</a>
-    <a href="profile.html" id="nav-profile">Profile</a>
-    <a href="download.html" id="nav-download">Download</a>
+  <a href="index.html" class="logo" aria-label="ClipNow home">Clip<span>Now</span></a>
+  <div class="nav-center" aria-label="Main navigation">
+    <a href="index.html" id="nav-explore">Explore</a><a href="upload.html" id="nav-upload">Upload</a><a href="search.html" id="nav-search">Search</a><a href="profile.html" id="nav-profile">Profile</a><a href="download.html" id="nav-download">Download</a>
   </div>
   <div class="nav-right">
     <a href="login.html" id="nav-login" class="btn btn-primary">Sign in</a>
     <div id="nav-user">
-      <a href="inbox.html" class="inbox-icon" title="Inbox">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-          <path d="M4 4h16v16H4z"></path>
-          <path d="M4 9h5l2 3h2l2-3h5"></path>
-        </svg>
-      </a>
-      <a href="profile.html" id="nav-username" class="nav-username"></a>
-      <button type="button" onclick="logout()" class="btn btn-outline">Logout</button>
+      <a href="inbox.html" class="inbox-icon" title="Inbox" aria-label="Inbox"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h16v16H4z"></path><path d="M4 9h5l2 3h2l2-3h5"></path></svg></a>
+      <a href="profile.html" id="nav-username" class="nav-username"></a><button type="button" onclick="logout()" class="btn btn-outline">Logout</button>
     </div>
   </div>
 </nav>
-
-<div class="container">
-  <div class="page-head">
-    <div>
-      <h1 class="page-title">Home</h1>
-      <p class="page-sub">Top clips, trending this week, and what’s new.</p>
-    </div>
-    <a href="download.html" class="btn btn-green">Download Clipper</a>
-  </div>
-
-  <div class="section-head"><h2 class="section-title">Top 10 most viewed</h2></div>
-  <div id="top-viewed" class="clip-grid"><p class="empty">Loading...</p></div>
-
-  <div class="section-head"><h2 class="section-title">Popular this week</h2></div>
-  <div id="popular-week" class="clip-grid"><p class="empty">Loading...</p></div>
-
-  <div class="section-head"><h2 class="section-title">Latest</h2></div>
-  <div id="latest" class="clip-grid"><p class="empty">Loading...</p></div>
-</div>
-
+<main class="container">
+  <section class="cn-hero">
+    <div class="cn-eyebrow">Built for BuildNow.gg</div>
+    <h1>Your plays.<br>Your people. <span>ClipNow.</span></h1>
+    <p>A home for the BuildNow.gg community. Share your best clips, find new creators and keep your favourite plays in one place.</p>
+    <div class="cn-hero-actions"><a href="upload.html" class="btn btn-green">Upload a clip <span aria-hidden="true">↗</span></a><a href="search.html" class="btn btn-outline">Explore creators</a></div>
+    <form class="cn-hero-search" action="search.html" method="get" role="search"><input type="search" name="q" placeholder="Search clips or creators..." aria-label="Search clips or creators"><button type="submit" class="btn btn-green">Search</button></form>
+  </section>
+  <section aria-labelledby="top-title"><div class="cn-section-head"><div><h2 class="section-title" id="top-title">Most viewed</h2><p>Clips the community keeps coming back to.</p></div><a class="muted-link" href="search.html">Find more clips ↗</a></div><div id="top-viewed" class="clip-grid cn-home-grid" aria-live="polite"><p class="empty">Loading top clips…</p></div></section>
+  <section aria-labelledby="popular-title"><div class="cn-section-head"><div><h2 class="section-title" id="popular-title">Popular this week</h2><p>Recent plays getting attention.</p></div></div><div id="popular-week" class="clip-grid cn-home-grid" aria-live="polite"><p class="empty">Loading popular clips…</p></div></section>
+  <section aria-labelledby="latest-title"><div class="cn-section-head"><div><h2 class="section-title" id="latest-title">Fresh uploads</h2><p>See what creators have posted lately.</p></div><a class="muted-link" href="upload.html">Share your own ↗</a></div><div id="latest" class="clip-grid cn-home-grid" aria-live="polite"><p class="empty">Loading latest clips…</p></div></section>
+</main>
+<footer class="cn-footer">ClipNow · Made for the <a href="https://buildnow.gg/" target="_blank" rel="noopener noreferrer">BuildNow.gg</a> community</footer>
 <script src="app.js"></script>
 <script>
 async function renderGrid(id, clips, emptyText) {
   const el = document.getElementById(id);
-  if (!clips || !clips.length) {
-    el.innerHTML = `<p class="empty">${emptyText}</p>`;
-    return;
-  }
+  if (!clips || !clips.length) { el.innerHTML = '<p class="empty">' + escapeHtml(emptyText) + '</p>'; return; }
   el.innerHTML = clips.map(c => clipCardHtml(c)).join("");
-  await hydrateThumbnails(el);
+  try { await hydrateThumbnails(el); } catch (err) { console.warn("Thumbnail hydration:", err); }
 }
-
 async function loadHome() {
-  const { data: recent, error } = await getPublicClips({ limit: 80, order: "created_at" });
-  if (error) {
-    await renderGrid("top-viewed", [], escapeHtml(error.message));
-    await renderGrid("popular-week", [], "");
-    await renderGrid("latest", [], "");
-    return;
+  const sections = ["top-viewed", "popular-week", "latest"];
+  try {
+    const { data: recent, error } = await getPublicClips({ limit: 80, order: "created_at" });
+    if (error) throw error;
+    const clips = recent || [];
+    const top = [...clips].sort((a,b)=>(Number(b.views)||0)-(Number(a.views)||0)).slice(0,10);
+    const weekAgo = Date.now() - 7*24*60*60*1000;
+    const thisWeek = clips.filter(c=>new Date(c.created_at||0).getTime()>=weekAgo)
+      .sort((a,b)=>(Number(b.views)||0)-(Number(a.views)||0)||(Number(b.likes_count)||0)-(Number(a.likes_count)||0)).slice(0,10);
+    await renderGrid("top-viewed",top,"No public clips yet. Be the first to upload one.");
+    await renderGrid("popular-week",thisWeek.length?thisWeek:top.slice(0,8),"No popular clips yet. Check back soon.");
+    await renderGrid("latest",clips.slice(0,12),"No public clips yet. Be the first to upload one.");
+  } catch(err) {
+    console.error("ClipNow home load:",err);
+    sections.forEach(id=>{const el=document.getElementById(id);if(el)el.innerHTML='<p class="empty">Clips could not load right now. Please refresh in a moment.</p>';});
   }
-  const top = [...recent].sort((a, b) => (b.views || 0) - (a.views || 0)).slice(0, 10);
-  const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
-  const thisWeek = recent
-    .filter(c => new Date(c.created_at || 0).getTime() >= weekAgo)
-    .sort((a, b) => (b.views || 0) - (a.views || 0) || (b.likes_count || 0) - (a.likes_count || 0))
-    .slice(0, 10);
-
-  await renderGrid("top-viewed", top, "No public clips yet.");
-  await renderGrid("popular-week", thisWeek.length ? thisWeek : top.slice(0, 8), "Nothing new this week yet.");
-  await renderGrid("latest", recent.slice(0, 12), "No public clips yet.");
 }
 loadHome();
 </script>
