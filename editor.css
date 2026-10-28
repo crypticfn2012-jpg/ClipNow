@@ -262,3 +262,89 @@
 .editor-drop-active { outline:2px solid var(--ed-green)!important; outline-offset:-3px; background-color:#13170c!important; }
 .editor-timeline-content.editor-drop-active { box-shadow:inset 0 0 0 2px var(--ed-green); }
 .editor-media-panel.editor-drop-active .ed-import-button { border-color:var(--ed-green); }
+
+
+/* Desktop editor: keep the complete workspace inside the browser viewport. */
+@media (min-width:851px) {
+  html, body.editor-page {
+    width:100%;
+    height:100%;
+    min-height:0;
+    overflow:hidden;
+  }
+  body.editor-page {
+    display:grid;
+    grid-template-rows:56px 58px minmax(0,1fr);
+    height:100vh;
+    height:100dvh;
+  }
+  .editor-page .navbar {
+    position:relative;
+    top:auto;
+    height:56px;
+    min-height:56px;
+    overflow:hidden;
+  }
+  .editor-topbar {
+    height:58px;
+    min-height:0;
+    padding-top:5px;
+    padding-bottom:5px;
+    overflow:hidden;
+  }
+  .editor-shell {
+    height:100%;
+    min-height:0;
+    grid-template-rows:minmax(0,1fr) clamp(275px,32vh,320px);
+    overflow:hidden;
+  }
+  .editor-workspace,
+  .editor-media-panel,
+  .editor-inspector,
+  .editor-preview-column,
+  .editor-panel-body,
+  .editor-inspector-body,
+  .editor-timeline-dock,
+  .editor-timeline-scroll {
+    min-height:0;
+  }
+  .editor-workspace { height:100%; overflow:hidden; }
+  .editor-panel-body,
+  .editor-inspector-body,
+  .editor-timeline-scroll { overscroll-behavior:contain; }
+  .editor-inspector-body,
+  .editor-tool-panel { scrollbar-width:thin; scrollbar-color:#3b3b3b #101010; }
+  .editor-preview-column { overflow:hidden; }
+}
+
+/* Small screens keep normal page scrolling so the tools remain accessible. */
+@media (max-width:850px) {
+  html, body.editor-page {
+    height:auto;
+    min-height:100%;
+    overflow-x:hidden;
+    overflow-y:auto;
+  }
+  body.editor-page {
+    display:block;
+    min-height:100vh;
+    min-height:100dvh;
+  }
+  .editor-page .navbar {
+    position:sticky;
+    top:0;
+    height:auto;
+    min-height:56px;
+  }
+  .editor-topbar {
+    height:auto;
+    min-height:58px;
+    overflow:visible;
+  }
+  .editor-shell {
+    height:auto;
+    min-height:0;
+    overflow:visible;
+    grid-template-rows:none;
+  }
+}
