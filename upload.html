@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">\n  <meta name="theme-color" content="#0b0d10">
   <title>Upload - ClipNow</title>
   <link rel="stylesheet" href="style.css">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -19,11 +19,11 @@
   <h1 class="page-title">Upload Clip</h1>
   <p class="page-sub">MP4 / WebM. Maximum clip size: 50 MB.</p>
   <div id="error" class="error"></div><div id="success" class="success"></div>
-  <div class="form-group"><label>Video (MP4 / WebM)</label><input type="file" id="file" accept="video/mp4,video/webm,.mp4,.webm"></div>
-  <div class="form-group"><label>Thumbnail (optional)</label><input type="file" id="thumb" accept="image/*"></div>
-  <div class="form-group"><label>Title</label><input type="text" id="title" maxlength="120" placeholder="Title"></div>
-  <div class="form-group"><label>Description</label><textarea id="description" placeholder="Optional"></textarea></div>
-  <div class="form-group"><label>Visibility</label><select id="visibility"><option value="public">Public</option><option value="unlisted">Unlisted</option><option value="private">Private</option></select></div>
+  <div class="form-group"><label for="file">Video file</label><input type="file" id="file" accept="video/mp4,video/webm,.mp4,.webm" aria-describedby="file-hint" required><span class="cn-upload-hint" id="file-hint">Choose an MP4 or WebM clip up to 50 MB.</span></div>
+  <div class="form-group"><label for="thumb">Custom thumbnail <span style="color:#7f8a96;font-weight:400">(optional)</span></label><input type="file" id="thumb" accept="image/png,image/jpeg,image/webp"><span class="cn-upload-hint">If you skip this, ClipNow will try to generate a thumbnail from your video.</span></div>
+  <div class="form-group"><label for="title">Clip title</label><input type="text" id="title" maxlength="120" placeholder="Give your clip a name" required></div>
+  <div class="form-group"><label for="description">Description <span style="color:#7f8a96;font-weight:400">(optional)</span></label><textarea id="description" maxlength="2000" placeholder="What happened in this clip?"></textarea></div>
+  <div class="form-group"><label for="visibility">Who can see this clip?</label><select id="visibility"><option value="public">Public — anyone can discover it</option><option value="unlisted">Unlisted — people with the link</option><option value="private">Private — only you</option></select></div>
   <button id="upload-btn" class="btn btn-green" style="width:100%;padding:12px;">Upload Clip</button>
   <div id="progress" style="display:none;margin-top:14px;height:6px;background:#222;border-radius:99px;overflow:hidden;"><div id="progress-fill" style="height:100%;width:0%;background:#22c55e;transition:width .25s;"></div></div>
   <p id="upload-note" style="display:none;color:#777;font-size:12px;margin-top:10px;text-align:center;">The clip is uploaded. Thumbnail processing can finish after you leave this page.</p>
