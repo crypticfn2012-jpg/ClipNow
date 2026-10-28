@@ -24,46 +24,113 @@
     </div>
   </div>
 </nav>
-<main class="container">
-  <section class="cn-hero">
-    <div class="cn-eyebrow">Built for BuildNow.gg</div>
-    <h1>Your plays.<br>Your people. <span>ClipNow.</span></h1>
-    <p>A home for the BuildNow.gg community. Share your best clips, find new creators and keep your favourite plays in one place.</p>
-    <div class="cn-hero-actions"><a href="upload.html" class="btn btn-green">Upload a clip <span aria-hidden="true">↗</span></a><a href="search.html" class="btn btn-outline">Explore creators</a></div>
-    <form class="cn-hero-search" action="search.html" method="get" role="search"><input type="search" name="q" placeholder="Search clips or creators..." aria-label="Search clips or creators"><button type="submit" class="btn btn-green">Search</button></form>
+<main class="container cn-discovery">
+  <section class="cn-hero cn-hero-minimal">
+    <div class="cn-eyebrow">THE BUILDNOW.GG CLIP COMMUNITY</div>
+    <h1>Good plays.<br><span>Worth watching.</span></h1>
+    <p>Find your next favourite clip, discover creators and share the plays you’re proud of.</p>
+    <form class="cn-hero-search" action="search.html" method="get" role="search">
+      <label class="cn-search-field"><span class="cn-search-symbol" aria-hidden="true">⌕</span><input type="search" name="q" placeholder="Search clips or creators..." aria-label="Search clips or creators" maxlength="80" required></label>
+      <button type="submit" class="btn btn-primary">Search</button>
+    </form>
+    <div class="cn-hero-bottom"><span>Made for BuildNow.gg players</span><a href="upload.html">Have a clip? Upload it <span aria-hidden="true">↗</span></a></div>
   </section>
-  <section aria-labelledby="top-title"><div class="cn-section-head"><div><h2 class="section-title" id="top-title">Most viewed</h2><p>Clips the community keeps coming back to.</p></div><a class="muted-link" href="search.html">Find more clips ↗</a></div><div id="top-viewed" class="clip-grid cn-home-grid" aria-live="polite"><p class="empty">Loading top clips…</p></div></section>
-  <section aria-labelledby="popular-title"><div class="cn-section-head"><div><h2 class="section-title" id="popular-title">Popular this week</h2><p>Recent plays getting attention.</p></div></div><div id="popular-week" class="clip-grid cn-home-grid" aria-live="polite"><p class="empty">Loading popular clips…</p></div></section>
-  <section aria-labelledby="latest-title"><div class="cn-section-head"><div><h2 class="section-title" id="latest-title">Fresh uploads</h2><p>See what creators have posted lately.</p></div><a class="muted-link" href="upload.html">Share your own ↗</a></div><div id="latest" class="clip-grid cn-home-grid" aria-live="polite"><p class="empty">Loading latest clips…</p></div></section>
+  <section aria-labelledby="feed-title" class="cn-feed">
+    <div class="cn-feed-heading">
+      <div><div class="cn-eyebrow">THE FEED</div><h2 class="section-title" id="feed-title">Find something good.</h2><p class="page-sub">Real clips from the community. Pick how you want to browse.</p></div>
+      <a class="cn-text-link" href="search.html">Search everything <span aria-hidden="true">↗</span></a>
+    </div>
+    <div class="cn-feed-controls">
+      <div class="cn-tabs" role="group" aria-label="Sort clips">
+        <button type="button" class="cn-tab active" data-sort="newest" aria-pressed="true">Newest</button>
+        <button type="button" class="cn-tab" data-sort="trending" aria-pressed="false">Trending</button>
+        <button type="button" class="cn-tab" data-sort="views" aria-pressed="false">Most viewed</button>
+      </div>
+      <label class="cn-filter-label" for="feed-filter">Filter loaded clips <input id="feed-filter" type="search" placeholder="Filter by title or creator..." maxlength="80"></label>
+    </div>
+    <p class="cn-results-count" id="results-count" aria-live="polite">Loading clips…</p>
+    <div id="clip-feed" class="clip-grid cn-home-grid" aria-live="polite"><p class="empty">Loading community clips…</p></div>
+    <div class="cn-load-more-wrap"><button type="button" class="btn btn-outline" id="load-more" hidden>Load more clips</button></div>
+    <div class="cn-feed-footer"><span>Want to see more creators?</span><a href="search.html">Explore the community <span aria-hidden="true">↗</span></a></div>
+  </section>
 </main>
-<footer class="cn-footer">ClipNow · Made for the <a href="https://buildnow.gg/" target="_blank" rel="noopener noreferrer">BuildNow.gg</a> community</footer>
+<footer class="cn-footer">ClipNow <span class="cn-footer-dot">·</span> Made for the <a href="https://buildnow.gg/" target="_blank" rel="noopener noreferrer">BuildNow.gg</a> community</footer>
 <script src="app.js"></script>
 <script>
-async function renderGrid(id, clips, emptyText) {
-  const el = document.getElementById(id);
-  if (!clips || !clips.length) { el.innerHTML = '<p class="empty">' + escapeHtml(emptyText) + '</p>'; return; }
-  el.innerHTML = clips.map(c => clipCardHtml(c)).join("");
-  try { await hydrateThumbnails(el); } catch (err) { console.warn("Thumbnail hydration:", err); }
-}
-async function loadHome() {
-  const sections = ["top-viewed", "popular-week", "latest"];
-  try {
-    const { data: recent, error } = await getPublicClips({ limit: 80, order: "created_at" });
-    if (error) throw error;
-    const clips = recent || [];
-    const top = [...clips].sort((a,b)=>(Number(b.views)||0)-(Number(a.views)||0)).slice(0,10);
-    const weekAgo = Date.now() - 7*24*60*60*1000;
-    const thisWeek = clips.filter(c=>new Date(c.created_at||0).getTime()>=weekAgo)
-      .sort((a,b)=>(Number(b.views)||0)-(Number(a.views)||0)||(Number(b.likes_count)||0)-(Number(a.likes_count)||0)).slice(0,10);
-    await renderGrid("top-viewed",top,"No public clips yet. Be the first to upload one.");
-    await renderGrid("popular-week",thisWeek.length?thisWeek:top.slice(0,8),"No popular clips yet. Check back soon.");
-    await renderGrid("latest",clips.slice(0,12),"No public clips yet. Be the first to upload one.");
-  } catch(err) {
-    console.error("ClipNow home load:",err);
-    sections.forEach(id=>{const el=document.getElementById(id);if(el)el.innerHTML='<p class="empty">Clips could not load right now. Please refresh in a moment.</p>';});
+(function () {
+  const PAGE_SIZE = 12;
+  const feed = document.getElementById("clip-feed");
+  const count = document.getElementById("results-count");
+  const filter = document.getElementById("feed-filter");
+  const more = document.getElementById("load-more");
+  const tabs = [...document.querySelectorAll("[data-sort]")];
+  let allClips = [];
+  let mode = "newest";
+  let visibleCount = PAGE_SIZE;
+  let loadFailed = false;
+  function titleOf(clip) { return String(clip.title || "Untitled").replace(/^\[\[RAINBOW\]\]\s*/, ""); }
+  function score(clip) {
+    const views = Math.max(0, Number(clip.views) || 0);
+    const likes = Math.max(0, Number(clip.likes_count) || 0);
+    const created = new Date(clip.created_at || 0).getTime();
+    const ageHours = Math.max(1, (Date.now() - (Number.isFinite(created) ? created : 0)) / 3600000);
+    return (views + likes * 3) / Math.pow(ageHours + 2, 0.65);
   }
-}
-loadHome();
+  function sortedClips() {
+    const query = filter.value.trim().toLocaleLowerCase();
+    const list = allClips.filter(clip => {
+      const creator = clip.profiles?.display_name || clip.profiles?.username || "";
+      return !query || titleOf(clip).toLocaleLowerCase().includes(query) || creator.toLocaleLowerCase().includes(query);
+    });
+    if (mode === "views") list.sort((a,b) => (Number(b.views)||0)-(Number(a.views)||0) || new Date(b.created_at||0)-new Date(a.created_at||0));
+    else if (mode === "trending") list.sort((a,b) => score(b)-score(a));
+    else list.sort((a,b) => new Date(b.created_at||0)-new Date(a.created_at||0));
+    return list;
+  }
+  async function render() {
+    const results = sortedClips();
+    const shown = results.slice(0, visibleCount);
+    if (!shown.length) {
+      const heading = loadFailed ? "Clips could not load" : filter.value.trim() ? "No matching clips" : "Nothing to show yet";
+      const message = loadFailed ? "Please refresh the page and try again." : filter.value.trim() ? "Try a different title or creator name." : "Be the first to share a clip with the community.";
+      feed.innerHTML = '<div class="cn-empty-state"><span class="cn-empty-mark" aria-hidden="true">—</span><h3>'+escapeHtml(heading)+'</h3><p>'+escapeHtml(message)+'</p>'+(loadFailed||filter.value.trim()?'':'<a class="btn btn-primary" href="upload.html">Upload a clip</a>')+'</div>';
+    } else {
+      feed.innerHTML = shown.map(clip => clipCardHtml(clip)).join("");
+      try { if (typeof hydrateThumbnails === "function") await hydrateThumbnails(feed); }
+      catch (err) { console.warn("ClipNow feed thumbnails:", err); }
+    }
+    count.textContent = results.length ? 'Showing '+shown.length+' of '+results.length+' clips' : '';
+    more.hidden = results.length <= visibleCount;
+    more.disabled = visibleCount >= results.length;
+    more.textContent = 'Load more clips';
+  }
+  tabs.forEach(tab => tab.addEventListener("click", () => {
+    mode = tab.dataset.sort;
+    visibleCount = PAGE_SIZE;
+    tabs.forEach(item => {
+      const active = item === tab;
+      item.classList.toggle("active", active);
+      item.setAttribute("aria-pressed", String(active));
+    });
+    render();
+  }));
+  filter.addEventListener("input", () => { visibleCount = PAGE_SIZE; render(); });
+  more.addEventListener("click", () => { visibleCount += PAGE_SIZE; render(); });
+  async function init() {
+    try {
+      const result = await getPublicClips({ limit: 100, order: "created_at" });
+      if (result.error) throw result.error;
+      allClips = result.data || [];
+      await render();
+      if (!allClips.length) count.textContent = "No public clips yet";
+    } catch (err) {
+      loadFailed = true;
+      console.error("ClipNow feed:", err);
+      await render();
+    }
+  }
+  init();
+})();
 </script>
 </body>
 </html>
