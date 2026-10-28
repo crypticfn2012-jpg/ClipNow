@@ -43,39 +43,59 @@
 <script src="social.js"></script>
 <script>
 async function runSearch() {
-  const q = document.getElementById("q").value.trim();
+  const rawQuery = document.getElementById("q").value.trim().slice(0, 80);
+  const q = rawQuery.replace(/[,%()]/g, " ").replace(/\s+/g, " ").trim();
   const usersBox = document.getElementById("users");
   const clipsBox = document.getElementById("clips");
-  if (!q) { usersBox.innerHTML = `<p class="empty">Type a query.</p>`; clipsBox.innerHTML = ""; return; }
-  usersBox.innerHTML = `<p class="empty">Loading...</p>`; clipsBox.innerHTML = `<p class="empty">Loading...</p>`;
-
-  const { data: users } = await client.from("profiles")
-    .select("id, username, display_name, avatar_url, is_dev, rainbow_name")
-    .or(`username.ilike.%${q}%,display_name.ilike.%${q}%`).limit(20);
-
-  if (!users?.length) usersBox.innerHTML = `<p class="empty">No users.</p>`;
-  else {
-    const me = await getCurrentUser();
-    const rows = await Promise.all(users.map(async u => {
-      const badge = u.is_dev ? ' <span class="dev-badge">DEV</span>' : "";
-      const name = u.rainbow_name ? `<span class="rainbow-name">${escapeHtml(u.display_name || u.username)}</span>` : escapeHtml(u.display_name || u.username);
-      const av = u.avatar_url ? `<img class="avatar-sm" src="${escapeHtml(u.avatar_url)}" alt="">` : `<div class="avatar-sm">${escapeHtml((u.username || "?").charAt(0).toUpperCase())}</div>`;
-      const follow = me && me.id !== u.id ? `<button type="button" class="btn btn-green follow-btn" data-follow-user="${escapeHtml(u.id)}" onclick="event.preventDefault();event.stopPropagation();toggleFollow('${String(u.id).replace(/'/g, "\\'")}', this)">Follow</button>` : "";
-      return `<div class="user-card"><a class="search-user-main" href="profile.html?user=${encodeURIComponent(u.username)}">${av}<div><div style="font-weight:500">${name}${badge}</div><div style="font-size:13px;color:#888">@${escapeHtml(u.username)}</div></div></a>${follow}</div>`;
-    }));
-    usersBox.innerHTML = rows.join("");
-    await refreshSearchFollowButtons();
+  if (!q) {
+    usersBox.innerHTML = '<p class="empty">Enter a name or keyword to search.</p>';
+    clipsBox.innerHTML = "";
+    return;
   }
-
-  const { data: clips } = await client.from("clips").select("*").eq("visibility", "public").ilike("title", `%${q}%`).order("created_at", { ascending:false }).limit(40);
-  const list = clips || [];
-  if (list.length) {
-    const ids = [...new Set(list.map(c => c.user_id).filter(Boolean))];
-    const { data: profiles } = await client.from("profiles").select("id, username, display_name, avatar_url, is_dev, rainbow_name").in("id", ids);
-    const map = {}; (profiles || []).forEach(p => (map[p.id] = p)); list.forEach(c => (c.profiles = map[c.user_id] || null));
+  usersBox.innerHTML = '<p class="empty">Searching creators…</p>';
+  clipsBox.innerHTML = '<p class="empty">Searching clips…</p>';
+  try {
+    const { data: users, error: userError } = await client.from("profiles")
+      .select("id, username, display_name, avatar_url, is_dev, rainbow_name")
+      .or(`username.ilike.%${q}%,display_name.ilike.%${q}%`).limit(20);
+    if (userError) throw userError;
+    if (!users?.length) usersBox.innerHTML = '<p class="empty">No creators found for that search.</p>';
+    else {
+      const me = await getCurrentUser();
+      const rows = users.map(u => {
+        const badge = u.is_dev ? ' <span class="dev-badge">DEV</span>' : "";
+        const displayName = u.display_name || u.username;
+        const name = u.rainbow_name ? `<span class="rainbow-name">${escapeHtml(displayName)}</span>` : escapeHtml(displayName);
+        const av = u.avatar_url ? `<img class="avatar-sm" src="${escapeHtml(u.avatar_url)}" alt="">` : `<div class="avatar-sm">${escapeHtml((u.username || "?").charAt(0).toUpperCase())}</div>`;
+        const follow = me && me.id !== u.id ? `<button type="button" class="btn btn-green follow-btn" data-follow-user="${escapeHtml(u.id)}" onclick="event.preventDefault();event.stopPropagation();toggleFollow('${String(u.id).replace(/'/g, "\\'")}', this)">Follow</button>` : "";
+        return `<div class="user-card"><a class="search-user-main" href="profile.html?user=${encodeURIComponent(u.username)}">${av}<div><div style="font-weight:600">${name}${badge}</div><div style="font-size:13px;color:#929ba7">@${escapeHtml(u.username)}</div></div></a>${follow}</div>`;
+      });
+      usersBox.innerHTML = rows.join("");
+      if (me && typeof refreshSearchFollowButtons === "function") await refreshSearchFollowButtons();
+    }
+    const { data: clips, error: clipError } = await client.from("clips").select("*")
+      .eq("visibility", "public").ilike("title", `%${q}%`)
+      .order("created_at", { ascending: false }).limit(40);
+    if (clipError) throw clipError;
+    const list = clips || [];
+    if (list.length) {
+      const ids = [...new Set(list.map(c => c.user_id).filter(Boolean))];
+      const { data: profiles } = await client.from("profiles")
+        .select("id, username, display_name, avatar_url, is_dev, rainbow_name").in("id", ids);
+      const map = {};
+      (profiles || []).forEach(p => { map[p.id] = p; });
+      list.forEach(c => { c.profiles = map[c.user_id] || null; });
+    }
+    if (!list.length) clipsBox.innerHTML = '<p class="empty">No public clips found for that search.</p>';
+    else {
+      clipsBox.innerHTML = list.map(c => clipCardHtml(c)).join("");
+      if (typeof hydrateThumbnails === "function") await hydrateThumbnails(clipsBox);
+    }
+  } catch (err) {
+    console.error("ClipNow search:", err);
+    usersBox.innerHTML = '<p class="empty">Creator search is temporarily unavailable. Please try again.</p>';
+    clipsBox.innerHTML = '<p class="empty">Clip search is temporarily unavailable. Please try again.</p>';
   }
-  if (!list.length) clipsBox.innerHTML = `<p class="empty">No clips.</p>`;
-  else { clipsBox.innerHTML = list.map(c => clipCardHtml(c)).join(""); if (typeof hydrateThumbnails === "function") await hydrateThumbnails(clipsBox); }
 }
 
 document.getElementById("search-form").addEventListener("submit", e => { e.preventDefault(); runSearch(); });
