@@ -1276,6 +1276,12 @@
       showExportError("Add at least one video or image clip to the timeline before exporting.");
       return;
     }
+    if (mode === "upload") {
+      if (typeof getCurrentUser !== "function" || !(await getCurrentUser())) {
+        showExportError("Sign in to ClipNow before exporting an upload. You can download the finished video without signing in.");
+        return;
+      }
+    }
     const mime = supportedMime();
     if (!mime || !canvas.captureStream) {
       showExportError("This browser cannot record a WebM export. Try the latest desktop version of Chrome or Edge.");
@@ -1358,7 +1364,8 @@
     } finally {
       pause();
       state.recorder = null;
-      if (stream) stream.getTracks().forEach(track => { try { track.stop(); } catch (_) {} });
+      // The audio-mix track belongs to the persistent AudioContext. Do not stop
+      // it here or later exports would silently lose audio. Stop only the canvas track.
       if (canvasStream) canvasStream.getTracks().forEach(track => { try { track.stop(); } catch (_) {} });
       if (savedRatioSize) updateCanvasSize(savedRatioSize[0], savedRatioSize[1]);
       state.time = clamp(savedTime, 0, projectDuration());
