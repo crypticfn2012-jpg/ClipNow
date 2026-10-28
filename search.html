@@ -30,15 +30,15 @@
   </div>
 </nav>
 
-<div class="container">
-  <h1 class="page-title">Search</h1>
-  <div class="search-bar"><input type="text" id="q" placeholder="Search clips or users..."><button id="go">Search</button></div>
-  <h2 class="section-title">Users</h2>
-  <div id="users"></div>
-  <h2 class="section-title">Clips</h2>
-  <div id="clips" class="clip-grid"></div>
-</div>
-
+<main class="container">
+  <div class="cn-page-intro"><div class="cn-eyebrow">Discover the community</div><h1 class="page-title">Find your next favourite clip</h1><p class="page-sub">Search BuildNow.gg clips and the creators behind them.</p></div>
+  <form class="search-bar cn-search-bar" id="search-form" role="search"><input type="search" id="q" placeholder="Search clips or usernames..." aria-label="Search clips or usernames"><button id="go" type="submit">Search</button></form>
+  <div class="cn-search-layout">
+    <section aria-labelledby="users-title"><h2 class="section-title" id="users-title">Creators</h2><div id="users" aria-live="polite"><p class="empty">Search for a creator to get started.</p></div></section>
+    <section aria-labelledby="clips-title"><h2 class="section-title" id="clips-title">Clips</h2><div id="clips" class="clip-grid" aria-live="polite"><p class="empty">Search for clips by title.</p></div></section>
+  </div>
+</main>
+<footer class="cn-footer">ClipNow · Built for BuildNow.gg</footer>
 <script src="app.js"></script>
 <script src="social.js"></script>
 <script>
@@ -78,8 +78,7 @@ async function runSearch() {
   else { clipsBox.innerHTML = list.map(c => clipCardHtml(c)).join(""); if (typeof hydrateThumbnails === "function") await hydrateThumbnails(clipsBox); }
 }
 
-document.getElementById("go").onclick = runSearch;
-document.getElementById("q").addEventListener("keydown", e => { if (e.key === "Enter") runSearch(); });
+document.getElementById("search-form").addEventListener("submit", e => { e.preventDefault(); runSearch(); });
 const preset = new URLSearchParams(location.search).get("q");
 if (preset) { document.getElementById("q").value = preset; runSearch(); }
 </script>
