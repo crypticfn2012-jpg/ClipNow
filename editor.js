@@ -86,6 +86,36 @@
     return Math.max(0, Number(item.duration) || 0);
   }
   function itemEnd(item) { return (Number(item.start) || 0) + itemDuration(item); }
+  function volumeAtTime(item, time) {
+    let volume = clamp(item.volume == null ? 1 : item.volume, 0, 2);
+    const elapsed = time - item.start;
+    const remaining = itemEnd(item) - time;
+    if (Number(item.fadeIn) > 0) volume *= clamp(elapsed / Number(item.fadeIn), 0, 1);
+    if (Number(item.fadeOut) > 0) volume *= clamp(remaining / Number(item.fadeOut), 0, 1);
+    return volume;
+  }
+  function applyAudioLevels(time) {
+    const levels = new Map();
+    const visual = activeItem("visual", time);
+    const visualAsset = visual ? assetFor(visual) : null;
+    if (visual && visualAsset && visualAsset.type === "video") levels.set(visualAsset.id, volumeAtTime(visual, time));
+    state.project.items.forEach(item => {
+      if (item.kind !== "audio" || time < item.start || time >= itemEnd(item)) return;
+      const asset = assetFor(item);
+      if (!asset || asset.type !== "audio") return;
+      levels.set(asset.id, Math.max(levels.get(asset.id) || 0, volumeAtTime(item, time)));
+    });
+    state.assets.forEach(asset => {
+      if (!asset.element || !["video", "audio"].includes(asset.type)) return;
+      const level = levels.has(asset.id) ? clamp(levels.get(asset.id), 0, 2) : 0;
+      if (asset.gainNode && state.audioContext) {
+        try { asset.gainNode.gain.setTargetAtTime(level, state.audioContext.currentTime, 0.025); }
+        catch (_) { asset.gainNode.gain.value = level; }
+      } else {
+        asset.element.volume = clamp(level, 0, 1);
+      }
+    });
+  }
   function projectDuration() {
     let end = 0;
     state.project.items.forEach(item => { end = Math.max(end, itemEnd(item)); });
@@ -817,7 +847,7 @@
     const activeAudioIds = new Set();
     const activeAssets = new Map();
     if (visual && visibleAsset && visibleAsset.type === "video") {
-      activeAssets.set(visibleAsset.id, Number(visual.volume == null ? 1 : visual.volume));
+      activeAssets.set(visibleAsset.id, volumeAtTime(visual, time));
       seekMediaForItem(visual, time, shouldPlay);
     } else if (visibleAsset && visibleAsset.type === "image") {
       // Image clips render directly from their decoded image.
@@ -827,7 +857,7 @@
       const asset = assetFor(item);
       if (!asset || asset.type !== "audio" || !asset.element) return;
       activeAudioIds.add(asset.id);
-      activeAssets.set(asset.id, Math.max(activeAssets.get(asset.id) || 0, Number(item.volume == null ? 1 : item.volume)));
+      activeAssets.set(asset.id, Math.max(activeAssets.get(asset.id) || 0, volumeAtTime(item, time)));
       const el = asset.element;
       const local = clamp(item.in + (time - item.start) * Math.max(0.25, Number(item.speed) || 1), item.in, Math.max(item.in, item.out - 0.02));
       el.playbackRate = clamp(item.speed || 1, 0.25, 3);
@@ -899,6 +929,7 @@
     state.time = Math.min(projectDuration(), state.playbackEpoch + elapsed);
     const visual = activeItem("visual", state.time);
     const asset = visual ? assetFor(visual) : null;
+    applyAudioLevels(state.time);
     if ((asset && asset.type === "video" ? asset.id : null) !== state.currentVisualAsset) syncMedia(state.time, true);
     else {
       // Keep audio layers aligned while allowing the browser to decode video continuously.
