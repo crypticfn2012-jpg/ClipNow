@@ -72,8 +72,12 @@
     $("exportError").hidden = false;
   }
   function clearExportError() {
-    $("exportError").textContent = "";
-    $("exportError").hidden = true;
+    const el = $("exportError");
+    el.textContent = "";
+    el.hidden = true;
+    el.style.background = "";
+    el.style.borderColor = "";
+    el.style.color = "";
   }
   function itemDuration(item) {
     if (item.kind === "visual" || item.kind === "audio") {
@@ -268,25 +272,43 @@
     return asset;
   }
 
-  async function importFiles(files, autoTab) {
+  async function importFiles(files, autoTab, addImportedToTimeline) {
     const incoming = Array.from(files || []);
-    if (!incoming.length) return;
+    if (!incoming.length) return [];
     let success = 0;
+    const imported = [];
     for (const file of incoming) {
       try {
         const asset = await buildAssetFromFile(file);
         state.assets.set(asset.id, asset);
+        imported.push(asset);
         success++;
       } catch (error) {
         notify((file.name || "File") + ": " + (error.message || "Could not import."));
       }
     }
+    if (addImportedToTimeline && imported.length) {
+      checkpoint();
+      imported.forEach(asset => {
+        let item;
+        if (asset.type === "audio") {
+          item = { id: uid(), kind: "audio", assetId: asset.id, name: asset.name, start: 0, in: 0, out: asset.duration, speed: 1, volume: 1, fadeIn: 0, fadeOut: 0 };
+        } else {
+          item = makeVisualItem(asset, visualTrackEnd());
+          state.time = item.start;
+        }
+        state.project.items.push(item);
+        state.selectedId = item.id;
+      });
+    }
     renderMediaList();
     if (autoTab) activatePanel(autoTab);
     if (success) {
       $("saveStatus").textContent = "Media imported";
-      notify(success + " file" + (success === 1 ? "" : "s") + " added to media library. Add them to the timeline to edit.");
+      notify(success + " file" + (success === 1 ? "" : "s") + (addImportedToTimeline ? " added to the timeline." : " added to the media library."));
+      if (addImportedToTimeline) renderAll();
     }
+    return imported;
   }
 
   function iconForAsset(asset) {
@@ -729,8 +751,23 @@
     const track = event.target.closest(".editor-track");
     if (block || label || (!ruler && !track && event.target !== timelineContent)) return;
     const rect = timelineContent.getBoundingClientRect();
-    const time = Math.max(0, (event.clientX - rect.left - TRACK_LABEL) / getTimelinePixelsPerSecond());
-    seekTo(time);
+    const timeAtPointer = pointerEvent => {
+      const rect = timelineContent.getBoundingClientRect();
+      return Math.max(0, (pointerEvent.clientX - rect.left - TRACK_LABEL) / getTimelinePixelsPerSecond());
+    };
+    seekTo(Math.max(0, (event.clientX - rect.left - TRACK_LABEL) / getTimelinePixelsPerSecond()));
+    if (ruler && event.button === 0) {
+      event.preventDefault();
+      const move = moveEvent => seekTo(timeAtPointer(moveEvent));
+      const up = () => {
+        window.removeEventListener("pointermove", move);
+        window.removeEventListener("pointerup", up);
+        window.removeEventListener("pointercancel", up);
+      };
+      window.addEventListener("pointermove", move);
+      window.addEventListener("pointerup", up);
+      window.addEventListener("pointercancel", up);
+    }
   }
 
   function renderAll() {
@@ -739,7 +776,7 @@
     renderInspector();
     updateHistoryButtons();
     updateClock();
-    $("stageEmpty").hidden = state.project.items.some(item => item.kind === "visual");
+    $("stageEmpty").hidden = state.project.items.some(item => item.kind !== "audio");
     drawFrame();
     $("saveStatus").textContent = "Unsaved changes";
   }
@@ -1098,14 +1135,19 @@
       });
       const missing = (payload.assets || []).filter(saved => !assetMap.has(saved.id));
       checkpoint();
+      const remappedItems = [];
+      payload.project.items.forEach(savedItem => {
+        const copy = Object.assign({}, savedItem);
+        if (copy.assetId) {
+          if (!assetMap.has(copy.assetId)) return;
+          copy.assetId = assetMap.get(copy.assetId);
+        }
+        remappedItems.push(copy);
+      });
       state.project = {
         name: String(payload.project.name || "Imported project").slice(0, 80),
         ratio: ASPECTS[payload.project.ratio] ? payload.project.ratio : "16:9",
-        items: payload.project.items.map(item => {
-          const copy = Object.assign({}, item);
-          if (copy.assetId) copy.assetId = assetMap.get(copy.assetId) || null;
-          return copy;
-        }).filter(item => !item.assetId || assetMap.has(item.assetId))
+        items: remappedItems
       };
       state.selectedId = null;
       state.time = 0;
@@ -1326,7 +1368,8 @@
         target.classList.remove("editor-drop-active");
         const files = Array.from(event.dataTransfer.files || []);
         if (files.length) {
-          await importFiles(files);
+          const intoTimeline = target === timelineContent || target === $("stage");
+          await importFiles(files, null, intoTimeline);
           return;
         }
         const assetId = event.dataTransfer.getData("text/clipnow-asset");
