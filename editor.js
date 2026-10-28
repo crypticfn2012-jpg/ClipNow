@@ -413,7 +413,7 @@
       id: uid(), kind: "visual", assetId: asset.id, name: asset.name,
       start: Math.max(0, start), in: 0, out: asset.duration, speed: 1,
       volume: 1, fit: "contain", brightness: 0, contrast: 1, saturate: 1,
-      fadeIn: 0, fadeOut: 0
+      fadeIn: 0, fadeOut: 0, transition: "none", transitionDuration: 0.4
     };
   }
   function addAssetToTimeline(assetId, overlay) {
@@ -566,6 +566,9 @@
         html += field("Brightness", "brightness", item.brightness || 0, { range: true, min: -0.5, max: 0.5, step: 0.05, unit: "" });
         html += field("Contrast", "contrast", item.contrast == null ? 1 : item.contrast, { range: true, min: 0.5, max: 1.8, step: 0.05, unit: "×" });
         html += field("Saturation", "saturate", item.saturate == null ? 1 : item.saturate, { range: true, min: 0, max: 2, step: 0.05, unit: "×" });
+        html += '<div class="ed-inspector-title" style="margin-top:15px">Transition out</div>';
+        html += '<div class="ed-form-field"><label for="prop-transition">Effect</label><select id="prop-transition" data-prop="transition"><option value="none"' + ((item.transition || "none") === "none" ? " selected" : "") + '>None</option><option value="fade"' + (item.transition === "fade" ? " selected" : "") + '>Fade to black</option><option value="flash"' + (item.transition === "flash" ? " selected" : "") + '>Flash</option><option value="wipe"' + (item.transition === "wipe" ? " selected" : "") + '>Wipe</option></select></div>';
+        html += field("Transition duration (s)", "transitionDuration", item.transitionDuration == null ? 0.4 : item.transitionDuration, { range: true, min: 0.1, max: 1.5, step: 0.1, unit: "s" });
         html += '</div>';
       }
     } else {
@@ -599,7 +602,7 @@
     const asset = assetFor(item);
     const boolProps = ["bold", "outline", "background"];
     if (boolProps.includes(prop)) value = Boolean(rawValue);
-    else if (["fit", "color", "value"].includes(prop)) value = String(rawValue);
+    else if (["fit", "color", "value", "transition"].includes(prop)) value = String(rawValue);
     else value = Number(rawValue);
     if (prop === "start") value = Math.max(0, value || 0);
     if (prop === "duration") value = Math.max(0.1, value || 0.1);
@@ -1057,6 +1060,26 @@
       }
       ctx.restore();
     });
+    if (visual && visual.transition && visual.transition !== "none") {
+      const remaining = itemEnd(visual) - state.time;
+      const transitionDuration = clamp(visual.transitionDuration == null ? 0.4 : visual.transitionDuration, 0.1, 1.5);
+      if (remaining >= 0 && remaining < transitionDuration) {
+        const phase = clamp(1 - remaining / transitionDuration, 0, 1);
+        ctx.save();
+        ctx.globalAlpha = 1;
+        if (visual.transition === "fade") {
+          ctx.fillStyle = "rgba(0,0,0," + phase + ")";
+          ctx.fillRect(0, 0, w, h);
+        } else if (visual.transition === "flash") {
+          ctx.fillStyle = "rgba(255,255,255," + (Math.sin(phase * Math.PI) * 0.9) + ")";
+          ctx.fillRect(0, 0, w, h);
+        } else if (visual.transition === "wipe") {
+          ctx.fillStyle = "#000";
+          ctx.fillRect(0, 0, w * phase, h);
+        }
+        ctx.restore();
+      }
+    }
     ctx.restore();
   }
 
@@ -1125,7 +1148,7 @@
     const item = selectedItem();
     if (!item) return;
     checkpoint();
-    if (item.kind === "visual") Object.assign(item, { speed: 1, volume: 1, fit: "contain", brightness: 0, contrast: 1, saturate: 1, fadeIn: 0, fadeOut: 0 });
+    if (item.kind === "visual") Object.assign(item, { speed: 1, volume: 1, fit: "contain", brightness: 0, contrast: 1, saturate: 1, fadeIn: 0, fadeOut: 0, transition: "none", transitionDuration: 0.4 });
     else if (item.kind === "audio") Object.assign(item, { speed: 1, volume: 1, fadeIn: 0, fadeOut: 0 });
     else Object.assign(item, { x: 50, y: item.kind === "sticker" ? 30 : 50, scale: item.kind === "imageOverlay" ? 0.35 : 1, opacity: 1, rotation: 0 });
     renderAll();
