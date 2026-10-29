@@ -101,9 +101,13 @@
   }
   function applyAudioLevels(time) {
     const levels = new Map();
-    const visual = activeItem("visual", time);
-    const visualAsset = visual ? assetFor(visual) : null;
-    if (visual && visualAsset && visualAsset.type === "video") levels.set(visualAsset.id, visual.sourceMuted ? 0 : volumeAtTime(visual, time));
+    state.project.items.forEach(item => {
+      if (item.kind !== "visual" || time < item.start || time >= itemEnd(item)) return;
+      const asset = assetFor(item);
+      if (!asset || asset.type !== "video") return;
+      const volume = item.sourceMuted ? 0 : volumeAtTime(item, time);
+      levels.set(asset.id, Math.max(levels.get(asset.id) || 0, volume));
+    });
     state.project.items.forEach(item => {
       if (item.kind !== "audio" || time < item.start || time >= itemEnd(item)) return;
       const asset = assetFor(item);
@@ -1839,7 +1843,7 @@
   }
 
   function saveProjectFile() {
-    const assetManifest = Array.from(state.assets.values()).map(asset => ({ id: asset.id, name: asset.name, type: asset.type, size: asset.size, duration: asset.duration }));
+    const assetManifest = Array.from(state.assets.values()).map(asset => ({ id: asset.id, name: asset.name, type: asset.type, size: asset.size, duration: asset.duration, derivedFrom: asset.derivedFrom || null }));
     const payload = {
       app: "ClipNow Editor", version: 1, project: state.project,
       assets: assetManifest,
@@ -1858,11 +1862,37 @@
       if (!payload || payload.app !== "ClipNow Editor" || !payload.project || !Array.isArray(payload.project.items)) throw new Error("That is not a valid ClipNow Editor project file.");
       const available = Array.from(state.assets.values());
       const assetMap = new Map();
-      (payload.assets || []).forEach(saved => {
+      for (const saved of (payload.assets || [])) {
+        if (saved.derivedFrom && assetMap.has(saved.derivedFrom)) {
+          const parent = state.assets.get(assetMap.get(saved.derivedFrom));
+          if (parent && parent.url) {
+            const audio = document.createElement("audio");
+            audio.preload = "auto";
+            audio.crossOrigin = "anonymous";
+            audio.src = parent.url;
+            audio.load();
+            try {
+              await waitMedia(audio, "loadedmetadata", "error", 20000);
+              const derivedAsset = {
+                id: uid(), name: saved.name || (parent.name + " — detached audio"), type: "audio",
+                size: saved.size || parent.size || 0, file: parent.file || null, url: parent.url,
+                duration: Number.isFinite(audio.duration) ? audio.duration : saved.duration,
+                element: audio, width: 0, height: 0, gainNode: null, sourceNode: null,
+                cloud: !!parent.cloud, derivedFrom: parent.id
+              };
+              state.assets.set(derivedAsset.id, derivedAsset);
+              if (state.audioContext) audioGraphFor(derivedAsset);
+              assetMap.set(saved.id, derivedAsset.id);
+              continue;
+            } catch (error) {
+              console.warn("Could not restore linked audio asset", saved.name, error);
+            }
+          }
+        }
         let match = available.find(asset => asset.name === saved.name && asset.type === saved.type && asset.size === saved.size);
         if (!match) match = available.find(asset => asset.name === saved.name && asset.type === saved.type);
         if (match) assetMap.set(saved.id, match.id);
-      });
+      }
       const missing = (payload.assets || []).filter(saved => !assetMap.has(saved.id));
       checkpoint();
       const remappedItems = [];
@@ -1873,6 +1903,13 @@
           copy.assetId = assetMap.get(copy.assetId);
         }
         remappedItems.push(copy);
+      });
+      remappedItems.forEach(item => {
+        if (item.kind === "visual" && item.sourceMuted && item.linkGroup &&
+            !remappedItems.some(other => other.kind === "audio" && other.linkGroup === item.linkGroup)) {
+          item.sourceMuted = false;
+          delete item.linkGroup;
+        }
       });
       state.project = {
         name: String(payload.project.name || "Imported project").slice(0, 80),
