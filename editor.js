@@ -1199,7 +1199,13 @@
       const hue = (Number(item.hue) || 0) + look.hue;
       const sepia = clamp(look.sepia * 100, 0, 100);
       const grey = clamp(look.grayscale * 100, 0, 100);
-      const blur = clamp(Number(item.blur) || 0, 0, 8);
+      const previous = animatedProperties(raw, Math.max(raw.start, state.time - 1 / 30));
+      const movement = Math.abs((Number(item.x) || 0) - (Number(previous.x) || 0)) * w / 100 +
+        Math.abs((Number(item.y) || 0) - (Number(previous.y) || 0)) * h / 100 +
+        Math.abs((Number(item.rotation) || 0) - (Number(previous.rotation) || 0)) * 0.25 +
+        Math.abs((Number(item.scale) || 1) - (Number(previous.scale) || 1)) * Math.max(w, h) * 0.3;
+      const motionBlur = clamp(Number(item.motionBlur) || 0, 0, 1) * movement * 0.08;
+      const blur = clamp((Number(item.blur) || 0) + motionBlur, 0, 12);
       const scale = clamp(Number(item.scale) || 1, 0.1, 3);
       const x = clamp(item.x == null ? 50 : item.x, 0, 100) / 100 * w;
       const y = clamp(item.y == null ? 50 : item.y, 0, 100) / 100 * h;
@@ -1244,11 +1250,18 @@
       const y = clamp(item.y == null ? 50 : item.y, 0, 100) / 100 * h;
       ctx.translate(x, y);
       ctx.rotate((Number(item.rotation) || 0) * Math.PI / 180);
+      const previous = animatedProperties(raw, Math.max(raw.start, state.time - 1 / 30));
+      const movement = Math.abs((Number(item.x) || 0) - (Number(previous.x) || 0)) * w / 100 +
+        Math.abs((Number(item.y) || 0) - (Number(previous.y) || 0)) * h / 100 +
+        Math.abs((Number(item.rotation) || 0) - (Number(previous.rotation) || 0)) * 0.25 +
+        Math.abs((Number(item.scale) || 1) - (Number(previous.scale) || 1)) * Math.max(w, h) * 0.3;
+      const motionBlur = clamp(Number(item.motionBlur) || 0, 0, 1) * movement * 0.08;
+      ctx.filter = motionBlur > 0.05 ? "blur(" + clamp(motionBlur, 0, 8) + "px)" : "none";
       const unit = w / 1280;
       const scale = Number(item.scale) || 1;
       if (item.kind === "text" || item.kind === "caption") {
         const fontSize = Math.max(12, (Number(item.fontSize) || 56) * unit * scale);
-        ctx.font = (item.bold === false ? "500 " : "800 ") + fontSize + "px Arial, Helvetica, sans-serif";
+        ctx.font = (item.bold === false ? "500 " : "800 ") + fontSize + "px " + (item.fontFamily || "Arial") + ", Arial, Helvetica, sans-serif";
         ctx.textAlign = item.align || "center";
         ctx.textBaseline = "middle";
         const lines = String(item.value || "").split("\n");
@@ -1937,13 +1950,13 @@
     if (item.kind === "visual") Object.assign(item, {
       speed: 1, volume: 1, fit: "contain", brightness: 0, contrast: 1, saturate: 1,
       hue: 0, temperature: 0, vignette: 0, blur: 0, look: "clean",
-      x: 50, y: 50, scale: 1, opacity: 1, rotation: 0,
+      x: 50, y: 50, scale: 1, opacity: 1, rotation: 0, easing: "ease-in-out", motionBlur: 0,
       fadeIn: 0, fadeOut: 0, transition: "none", transitionDuration: 0.4, keyframes: []
     });
-    else if (item.kind === "audio") Object.assign(item, { speed: 1, volume: 1, fadeIn: 0, fadeOut: 0, keyframes: [] });
+    else if (item.kind === "audio") Object.assign(item, { speed: 1, volume: 1, fadeIn: 0, fadeOut: 0, easing: "ease-in-out", keyframes: [] });
     else Object.assign(item, {
       x: 50, y: item.kind === "sticker" ? 30 : item.kind === "caption" ? 84 : 50,
-      scale: item.kind === "imageOverlay" ? 0.35 : 1, opacity: 1, rotation: 0, keyframes: []
+      scale: item.kind === "imageOverlay" ? 0.35 : 1, opacity: 1, rotation: 0, fontFamily: item.fontFamily || "Arial", easing: "ease-in-out", motionBlur: 0, keyframes: []
     });
     renderAll();
     notify("Selected layer properties reset.");
