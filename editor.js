@@ -1216,14 +1216,47 @@
         }
         lines.forEach((line, i) => {
           const ly = (i - (lines.length - 1) / 2) * lineHeight;
-          if (item.outline !== false) {
-            ctx.lineJoin = "round";
-            ctx.strokeStyle = "rgba(0,0,0,.92)";
-            ctx.lineWidth = Math.max(2, fontSize * 0.075);
-            ctx.strokeText(line, 0, ly, w * 0.92);
+          const timedWords = item.kind === "caption" && item.wordHighlight && lines.length === 1 && Array.isArray(item.wordTimings) ? item.wordTimings : [];
+          if (timedWords.length) {
+            const parts = timedWords.map((word, index) => ({
+              word,
+              text: (index === 0 ? "" : (word.joiner == null ? " " : word.joiner)) + String(word.text || "")
+            }));
+            const widths = parts.map(part => ctx.measureText(part.text).width);
+            const totalWidth = widths.reduce((sum, value) => sum + value, 0);
+            let cursor = -totalWidth / 2;
+            parts.forEach((part, index) => {
+              const width = widths[index];
+              const activeWord = state.time >= Number(part.word.start) && state.time < Number(part.word.end);
+              if (activeWord) {
+                const padX = fontSize * 0.12;
+                const padY = fontSize * 0.08;
+                ctx.fillStyle = "#d8f55d";
+                roundedRect(ctx, cursor - padX / 2, ly - fontSize / 2 - padY, width + padX, fontSize + padY * 2, fontSize * 0.1);
+                ctx.fill();
+              }
+              if (item.outline !== false) {
+                ctx.lineJoin = "round";
+                ctx.strokeStyle = "rgba(0,0,0,.92)";
+                ctx.lineWidth = Math.max(2, fontSize * 0.075);
+                ctx.strokeText(part.text, cursor, ly, width + 1);
+              }
+              ctx.fillStyle = activeWord ? "#10110b" : (item.color || "#fff");
+              ctx.textAlign = "left";
+              ctx.fillText(part.text, cursor, ly);
+              cursor += width;
+            });
+            ctx.textAlign = item.align || "center";
+          } else {
+            if (item.outline !== false) {
+              ctx.lineJoin = "round";
+              ctx.strokeStyle = "rgba(0,0,0,.92)";
+              ctx.lineWidth = Math.max(2, fontSize * 0.075);
+              ctx.strokeText(line, 0, ly, w * 0.92);
+            }
+            ctx.fillStyle = item.color || "#fff";
+            ctx.fillText(line, 0, ly, w * 0.92);
           }
-          ctx.fillStyle = item.color || "#fff";
-          ctx.fillText(line, 0, ly, w * 0.92);
         });
       } else if (item.kind === "sticker") {
         ctx.textAlign = "center";
@@ -1784,12 +1817,13 @@
         if (!text || !Number.isFinite(start) || !Number.isFinite(end) || end <= start) return;
         if (!current || current.words >= 6 || end - current.start > 2.8 || /[.!?]$/.test(current.text)) {
           if (current) chunks.push(current);
-          current = { text, start, end, words: 1, wordTimings: [{ text, start, end }] };
+          current = { text, start, end, words: 1, wordTimings: [{ text, start, end, joiner: "" }] };
         } else {
-          current.text += text.startsWith("'") || /^[,.;:!?]/.test(text) ? text : " " + text;
+          const joiner = text.startsWith("'") || /^[,.;:!?]/.test(text) ? "" : " ";
+          current.text += joiner + text;
           current.end = end;
           current.words++;
-          current.wordTimings.push({ text, start, end });
+          current.wordTimings.push({ text, start, end, joiner });
         }
       });
       if (current) chunks.push(current);
