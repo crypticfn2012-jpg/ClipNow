@@ -631,6 +631,16 @@
     });
   }
 
+  function shiftLayerTiming(item, delta) {
+    const amount = Number(delta) || 0;
+    if (!amount) return;
+    if (Array.isArray(item.keyframes)) item.keyframes = item.keyframes.map(frame => Object.assign({}, frame, { time: Number(frame.time) + amount }));
+    if (Array.isArray(item.wordTimings)) item.wordTimings = item.wordTimings.map(word => Object.assign({}, word, {
+      start: Number(word.start) + amount,
+      end: Number(word.end) + amount
+    }));
+  }
+
   function applyProperty(item, prop, rawValue) {
     let value = rawValue;
     const asset = assetFor(item);
@@ -665,7 +675,9 @@
     if (prop === "fontSize") value = clamp(value, 12, 180);
     if (prop === "value") value = String(value).slice(0, 300);
     if (prop === "color" && !/^#[0-9a-f]{6}$/i.test(value)) value = "#ffffff";
+    const previousStart = Number(item.start) || 0;
     item[prop] = value;
+    if (prop === "start") shiftLayerTiming(item, item.start - previousStart);
   }
 
   function getTimelinePixelsPerSecond() { return Number(state.zoom) || 80; }
@@ -826,7 +838,11 @@
     const pps = getTimelinePixelsPerSecond();
     const startX = event.clientX;
     const startY = event.clientY;
-    const original = { start: item.start, in: item.in, out: item.out, duration: item.duration, track: Number(item.track) || 0 };
+    const original = {
+      start: item.start, in: item.in, out: item.out, duration: item.duration, track: Number(item.track) || 0,
+      keyframes: Array.isArray(item.keyframes) ? item.keyframes.map(frame => Object.assign({}, frame)) : null,
+      wordTimings: Array.isArray(item.wordTimings) ? item.wordTimings.map(word => Object.assign({}, word)) : null
+    };
     checkpoint();
     let changed = false;
     const move = ev => {
@@ -856,6 +872,11 @@
         } else {
           item.duration = Math.max(0.1, original.duration + dx);
         }
+      }
+      const timingShift = item.start - original.start;
+      if (edge === "move" || (edge === "left" && (item.kind === "visual" || item.kind === "audio"))) {
+        if (original.keyframes) item.keyframes = original.keyframes.map(frame => Object.assign({}, frame, { time: Number(frame.time) + timingShift }));
+        if (original.wordTimings) item.wordTimings = original.wordTimings.map(word => Object.assign({}, word, { start: Number(word.start) + timingShift, end: Number(word.end) + timingShift }));
       }
       syncLinkedDuringDrag(item);
       changed = true;
@@ -1497,10 +1518,12 @@
       delete copy.relativeStart;
       copy.id = uid();
       copy.start = Math.max(0, base + (source.relativeStart || 0));
+      const shift = copy.start - (Number(source.start) || 0);
       copy.name = (copy.name || copy.kind) + " copy";
       if (newLinkGroup) copy.linkGroup = newLinkGroup;
       else delete copy.linkGroup;
-      if (Array.isArray(copy.keyframes)) copy.keyframes = copy.keyframes.map(k => Object.assign({}, k, { time: k.time + delta }));
+      if (Array.isArray(copy.keyframes)) copy.keyframes = copy.keyframes.map(k => Object.assign({}, k, { time: Number(k.time) + shift }));
+      if (Array.isArray(copy.wordTimings)) copy.wordTimings = copy.wordTimings.map(word => Object.assign({}, word, { start: Number(word.start) + shift, end: Number(word.end) + shift }));
       return copy;
     });
     state.project.items.push(...clones);
@@ -1525,7 +1548,7 @@
     state.project.items.forEach(other => {
       if (other.start >= end - 0.001) {
         other.start = Math.max(0, other.start - gap);
-        if (Array.isArray(other.keyframes)) other.keyframes = other.keyframes.map(k => Object.assign({}, k, { time: Math.max(other.start, k.time - gap) }));
+        shiftLayerTiming(other, -gap);
       }
     });
     (state.project.markers || []).forEach(marker => { if (marker.time >= end) marker.time = Math.max(0, marker.time - gap); });
