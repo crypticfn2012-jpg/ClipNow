@@ -1228,6 +1228,7 @@
             parts.forEach((part, index) => {
               const width = widths[index];
               const activeWord = state.time >= Number(part.word.start) && state.time < Number(part.word.end);
+              ctx.textAlign = "left";
               if (activeWord) {
                 const padX = fontSize * 0.12;
                 const padY = fontSize * 0.08;
@@ -1242,7 +1243,6 @@
                 ctx.strokeText(part.text, cursor, ly, width + 1);
               }
               ctx.fillStyle = activeWord ? "#10110b" : (item.color || "#fff");
-              ctx.textAlign = "left";
               ctx.fillText(part.text, cursor, ly);
               cursor += width;
             });
