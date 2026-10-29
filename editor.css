@@ -389,3 +389,7 @@
   .editor-tool-tab { font-size:9px; }
   .ed-motion-grid { gap:5px; }
 }
+
+.editor-timeline-clip.kind-caption { background:linear-gradient(100deg,#72558c,#4d3762); border-color:#c1a1df; }
+.editor-timeline-clip.kind-text { background:linear-gradient(100deg,#49356e,#3b2b60); border-color:#a78bfa; }
+.editor-timeline-clip.kind-sticker { background:linear-gradient(100deg,#6a5025,#4c381a); border-color:#d6ad5c; }
