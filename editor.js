@@ -466,7 +466,7 @@
       id: uid(), kind: "text", name: isCaption ? "Caption" : "Text",
       value: value, start: state.time, duration: 5, x: 50, y: isCaption ? 84 : 50, track: 0,
       scale: 1, fontSize: isCaption ? 36 : Number($("newTextSize").value) || 56,
-      color: $("newTextColor").value || "#ffffff", background: isCaption,
+      color: $("newTextColor").value || "#ffffff", fontFamily: "Arial", background: isCaption,
       rotation: 0, opacity: 1, align: "center", bold: true, outline: true, keyframes: [],
       easing: "ease-in-out", motionBlur: 0
     };
@@ -569,6 +569,21 @@
       const count = Math.max(1, Number(state.project.trackCounts && state.project.trackCounts[key]) || 1);
       return Array.from({ length: count }, (_, i) => ({ value: i, label: key === "visual" ? "Video " + (i + 1) : key === "audio" ? "Audio " + (i + 1) : "Overlay " + (i + 1) }));
     };
+    const easingOptions = [
+      { value: "linear", label: "Linear" },
+      { value: "ease-in", label: "Ease in" },
+      { value: "ease-out", label: "Ease out" },
+      { value: "ease-in-out", label: "Ease in / out" },
+      { value: "step", label: "Step" }
+    ];
+    const fontOptions = [
+      { value: "Arial", label: "Arial · Clean" },
+      { value: "Impact", label: "Impact · Bold" },
+      { value: "Trebuchet MS", label: "Trebuchet MS" },
+      { value: "Verdana", label: "Verdana" },
+      { value: "Georgia", label: "Georgia · Serif" },
+      { value: "Courier New", label: "Courier New · Mono" }
+    ];
     let html = "";
     html += '<div class="ed-inspector-section"><div class="ed-inspector-title">Selected layer</div><div class="ed-form-field"><label>Media</label><div style="font-size:11px;color:#eee;overflow-wrap:anywhere">' + esc(item.name || (asset && asset.name) || item.kind) + '</div><div style="font-size:9px;color:#737373;margin-top:5px">' + esc(category) + ' · ' + fmtShort(itemDuration(item)) + '</div></div></div>';
     if (item.kind === "visual" || item.kind === "audio") {
@@ -581,6 +596,7 @@
       html += '<div class="ed-inspector-section"><div class="ed-inspector-title">Audio</div>';
       html += field("Volume", "volume", item.volume, { range: true, min: 0, max: 2, step: 0.05, unit: "×" });
       html += pair(field("Fade in (s)", "fadeIn", item.fadeIn || 0, { min: 0, max: 10, step: 0.1 }), field("Fade out (s)", "fadeOut", item.fadeOut || 0, { min: 0, max: 10, step: 0.1 }));
+      if (item.kind === "audio") html += field("Volume easing", "easing", item.easing || "ease-in-out", { select: easingOptions });
       html += '</div>';
       if (item.kind === "visual") {
         html += '<div class="ed-inspector-section"><div class="ed-inspector-title">Image & colour</div>';
@@ -593,10 +609,12 @@
         html += field("Warmth", "temperature", item.temperature || 0, { range: true, min: -1, max: 1, step: 0.05 });
         html += field("Vignette", "vignette", item.vignette || 0, { range: true, min: 0, max: 1, step: 0.05 });
         html += field("Soft focus", "blur", item.blur || 0, { range: true, min: 0, max: 8, step: 0.5, unit: "px" });
+        html += field("Motion blur", "motionBlur", item.motionBlur || 0, { range: true, min: 0, max: 1, step: 0.05 });
         html += '<div class="ed-inspector-title" style="margin-top:15px">Transform & motion</div>';
         html += pair(field("X (%)", "x", item.x == null ? 50 : item.x, { min: 0, max: 100, step: 1 }), field("Y (%)", "y", item.y == null ? 50 : item.y, { min: 0, max: 100, step: 1 }));
         html += field("Scale", "scale", item.scale == null ? 1 : item.scale, { range: true, min: 0.2, max: 3, step: 0.05, unit: "×" });
         html += pair(field("Rotation (°)", "rotation", item.rotation || 0, { min: -180, max: 180, step: 1 }), field("Opacity", "opacity", item.opacity == null ? 1 : item.opacity, { range: true, min: 0, max: 1, step: 0.05 }));
+        html += field("Animation easing", "easing", item.easing || "ease-in-out", { select: easingOptions });
         html += '<div class="ed-inspector-title" style="margin-top:12px">Transition out</div>';
         html += '<div class="ed-form-field"><label for="prop-transition">Effect</label><select id="prop-transition" data-prop="transition"><option value="none"' + ((item.transition || "none") === "none" ? " selected" : "") + '>None</option><option value="fade"' + (item.transition === "fade" ? " selected" : "") + '>Fade to black</option><option value="flash"' + (item.transition === "flash" ? " selected" : "") + '>Flash</option><option value="wipe"' + (item.transition === "wipe" ? " selected" : "") + '>Wipe</option></select></div>';
         html += field("Transition duration (s)", "transitionDuration", item.transitionDuration == null ? 0.4 : item.transitionDuration, { range: true, min: 0.1, max: 1.5, step: 0.1, unit: "s" });
@@ -611,11 +629,14 @@
       html += pair(field("X position (%)", "x", item.x, { min: 0, max: 100, step: 1 }), field("Y position (%)", "y", item.y, { min: 0, max: 100, step: 1 }));
       html += field("Scale", "scale", item.scale, { range: true, min: 0.1, max: item.kind === "imageOverlay" ? 1.5 : 3, step: 0.05, unit: "×" });
       html += pair(field("Rotation (°)", "rotation", item.rotation || 0, { min: -180, max: 180, step: 1 }), field("Opacity", "opacity", item.opacity == null ? 1 : item.opacity, { range: true, min: 0, max: 1, step: 0.05, unit: "" }));
+      html += field("Animation easing", "easing", item.easing || "ease-in-out", { select: easingOptions });
+      html += field("Motion blur", "motionBlur", item.motionBlur || 0, { range: true, min: 0, max: 1, step: 0.05 });
       html += '</div>';
       if (item.kind === "text" || item.kind === "caption") {
         html += '<div class="ed-inspector-section"><div class="ed-inspector-title">Typography</div>';
         html += field("Caption text", "value", item.value, { textarea: true });
         html += pair(field("Font size", "fontSize", item.fontSize || 56, { min: 12, max: 180, step: 1 }), field("Text colour", "color", item.color || "#ffffff", { color: true }));
+        html += field("Font family", "fontFamily", item.fontFamily || "Arial", { select: fontOptions });
         html += field("Bold", "bold", item.bold !== false, { check: true });
         html += field("Text outline", "outline", item.outline !== false, { check: true });
         html += field("Text background", "background", !!item.background, { check: true });
@@ -1674,7 +1695,7 @@
     const item = {
       id: uid(), kind: "caption", name: "Caption", value: value.slice(0, 300),
       start: Math.max(0, Number(start) || 0), duration: Math.max(0.15, (Number(end) || (Number(start) + 2.2)) - (Number(start) || 0)),
-      x: 50, y: chosen.y, scale: 1, fontSize: 38, color: chosen.color,
+      x: 50, y: chosen.y, scale: 1, fontSize: 38, color: chosen.color, fontFamily: "Arial",
       background: !!chosen.background, outline: !!chosen.outline, bold: true, opacity: 1,
       rotation: 0, align: "center", track: 0, keyframes: [],
       easing: "ease-in-out", motionBlur: 0,
