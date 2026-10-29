@@ -11,7 +11,7 @@
     "4:5": [864, 1080]
   };
   const state = {
-    project: { name: "Untitled project", ratio: "16:9", items: [] },
+    project: { name: "Untitled project", ratio: "16:9", items: [], markers: [], trackCounts: { visual: 2, overlay: 2, audio: 2 } },
     assets: new Map(),
     selectedId: null,
     time: 0,
@@ -27,7 +27,11 @@
     audioContext: null,
     audioMix: null,
     recorder: null,
-    exportMode: null
+    exportMode: null,
+    clipboard: null,
+    snapEnabled: true,
+    transcriberPromise: null,
+    speechModelLoaded: false
   };
 
   const canvas = $("previewCanvas");
@@ -137,12 +141,12 @@
   function activeItem(kind, time) {
     const t = Number.isFinite(time) ? time : state.time;
     const found = state.project.items.filter(item => item.kind === kind && t >= item.start && t < itemEnd(item));
-    found.sort((a, b) => a.start - b.start);
+    found.sort((a, b) => (Number(a.track) || 0) - (Number(b.track) || 0) || a.start - b.start || state.project.items.indexOf(a) - state.project.items.indexOf(b));
     return found.length ? found[found.length - 1] : null;
   }
   function takeSnapshot() {
     return JSON.stringify({
-      project: { name: state.project.name, ratio: state.project.ratio, items: state.project.items.map(item => Object.assign({}, item)) },
+      project: { name: state.project.name, ratio: state.project.ratio, items: state.project.items.map(item => Object.assign({}, item)), markers: (state.project.markers || []).map(marker => Object.assign({}, marker)), trackCounts: Object.assign({ visual: 2, overlay: 2, audio: 2 }, state.project.trackCounts || {}) },
       selectedId: state.selectedId,
       time: state.time
     });
@@ -156,6 +160,8 @@
   function restoreSnapshot(raw) {
     const snapshot = JSON.parse(raw);
     state.project = snapshot.project;
+    state.project.markers = state.project.markers || [];
+    state.project.trackCounts = Object.assign({ visual: 2, overlay: 2, audio: 2 }, state.project.trackCounts || {});
     state.selectedId = snapshot.selectedId;
     state.time = snapshot.time || 0;
     $("projectName").value = state.project.name || "Untitled project";
