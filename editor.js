@@ -1982,7 +1982,7 @@
     else if (item.kind === "audio") Object.assign(item, { speed: 1, volume: 1, fadeIn: 0, fadeOut: 0, easing: "ease-in-out", keyframes: [] });
     else Object.assign(item, {
       x: 50, y: item.kind === "sticker" ? 30 : item.kind === "caption" ? 84 : 50,
-      scale: item.kind === "imageOverlay" ? 0.35 : 1, opacity: 1, rotation: 0, fontFamily: item.fontFamily || "Arial", easing: "ease-in-out", motionBlur: 0, keyframes: []
+      scale: item.kind === "imageOverlay" ? 0.35 : 1, opacity: 1, rotation: 0, fontFamily: "Arial", easing: "ease-in-out", motionBlur: 0, keyframes: []
     });
     renderAll();
     notify("Selected layer properties reset.");
