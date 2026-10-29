@@ -1550,7 +1550,9 @@
         shiftLayerTiming(other, -gap);
       }
     });
-    (state.project.markers || []).forEach(marker => { if (marker.time >= end) marker.time = Math.max(0, marker.time - gap); });
+    (state.project.markers || []).forEach(marker => {
+      if (marker.time >= start) marker.time = Math.max(start, marker.time - gap);
+    });
     state.selectedId = null;
     state.time = Math.max(0, Math.min(state.time, projectDuration()));
     renderAll();
