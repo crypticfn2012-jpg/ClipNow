@@ -668,6 +668,9 @@
   function applyProperty(item, prop, rawValue) {
     let value = rawValue;
     const asset = assetFor(item);
+    const animatedProps = ["x", "y", "scale", "rotation", "opacity", "volume"];
+    const beforeAnimated = animatedProps.includes(prop) && Array.isArray(item.keyframes) && item.keyframes.length
+      ? animatedProperties(item, state.time) : null;
     const boolProps = ["bold", "outline", "background"];
     if (boolProps.includes(prop)) value = Boolean(rawValue);
     else if (["fit", "color", "value", "transition", "look", "easing", "fontFamily"].includes(prop)) value = String(rawValue);
@@ -703,6 +706,29 @@
     const previousStart = Number(item.start) || 0;
     item[prop] = value;
     if (prop === "start") shiftLayerTiming(item, item.start - previousStart);
+
+    // Once a layer has keyframes, changing an animated property at a new time
+    // creates or updates a keyframe there. This makes the inspector work like
+    // an auto-keyframe animation workflow while preserving untouched channels.
+    if (beforeAnimated && animatedProps.includes(prop) && state.time >= item.start && state.time <= itemEnd(item)) {
+      const time = Number(state.time.toFixed(3));
+      const frameIndex = item.keyframes.findIndex(frame => Math.abs(Number(frame.time) - time) < 0.04);
+      const existing = frameIndex >= 0 ? Object.assign({}, item.keyframes[frameIndex]) : {};
+      const source = Object.assign({}, beforeAnimated, existing);
+      const frame = {
+        time,
+        x: Number(source.x == null ? 50 : source.x),
+        y: Number(source.y == null ? 50 : source.y),
+        scale: Number(source.scale == null ? 1 : source.scale),
+        rotation: Number(source.rotation) || 0,
+        opacity: Number(source.opacity == null ? 1 : source.opacity),
+        volume: Number(source.volume == null ? (item.volume == null ? 1 : item.volume) : source.volume)
+      };
+      frame[prop] = value;
+      if (frameIndex >= 0) item.keyframes[frameIndex] = frame;
+      else item.keyframes.push(frame);
+      item.keyframes.sort((a, b) => a.time - b.time);
+    }
   }
 
   function getTimelinePixelsPerSecond() { return Number(state.zoom) || 80; }
@@ -2464,7 +2490,8 @@
       syncLinkedProperty(item, prop);
       const output = input.parentElement.querySelector('output[data-for="' + prop + '"]');
       if (output) output.textContent = Number(item[prop]).toFixed(2) + (prop === "speed" || prop === "volume" ? "×" : "");
-      if (["start", "duration", "in", "out", "speed", "fadeIn", "fadeOut", "track", "keyframes", "transition", "transitionDuration"].includes(prop)) renderTimeline();
+      if (["start", "duration", "in", "out", "speed", "fadeIn", "fadeOut", "track", "keyframes", "transition", "transitionDuration"].includes(prop) ||
+          (["x", "y", "scale", "rotation", "opacity", "volume"].includes(prop) && item.keyframes && item.keyframes.length)) renderTimeline();
       else {
         const block = timelineContent.querySelector('[data-item-id="' + item.id + '"] .ed-clip-name');
         if (block && (prop === "value" || prop === "name")) block.textContent = item.value || item.name || item.kind;
