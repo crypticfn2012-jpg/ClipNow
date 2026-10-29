@@ -1439,6 +1439,10 @@
     if ($("motionTarget").value === "visual") item = activeItem("visual", state.time);
     if (!item) { notify("Select a video, caption, sticker or image layer first."); return; }
     if (item.kind === "audio") { notify("Audio keyframes aren't supported yet. Use volume and fade controls instead."); return; }
+    if (state.time < item.start || state.time > itemEnd(item)) {
+      notify("Move the playhead inside the selected layer before setting a keyframe.");
+      return;
+    }
     const values = animatedProperties(item, state.time);
     const frame = {
       time: Number(state.time.toFixed(3)),
@@ -1896,9 +1900,17 @@
     const item = selectedItem();
     if (!item) return;
     checkpoint();
-    if (item.kind === "visual") Object.assign(item, { speed: 1, volume: 1, fit: "contain", brightness: 0, contrast: 1, saturate: 1, fadeIn: 0, fadeOut: 0, transition: "none", transitionDuration: 0.4 });
-    else if (item.kind === "audio") Object.assign(item, { speed: 1, volume: 1, fadeIn: 0, fadeOut: 0 });
-    else Object.assign(item, { x: 50, y: item.kind === "sticker" ? 30 : 50, scale: item.kind === "imageOverlay" ? 0.35 : 1, opacity: 1, rotation: 0 });
+    if (item.kind === "visual") Object.assign(item, {
+      speed: 1, volume: 1, fit: "contain", brightness: 0, contrast: 1, saturate: 1,
+      hue: 0, temperature: 0, vignette: 0, blur: 0, look: "clean",
+      x: 50, y: 50, scale: 1, opacity: 1, rotation: 0,
+      fadeIn: 0, fadeOut: 0, transition: "none", transitionDuration: 0.4, keyframes: []
+    });
+    else if (item.kind === "audio") Object.assign(item, { speed: 1, volume: 1, fadeIn: 0, fadeOut: 0, keyframes: [] });
+    else Object.assign(item, {
+      x: 50, y: item.kind === "sticker" ? 30 : item.kind === "caption" ? 84 : 50,
+      scale: item.kind === "imageOverlay" ? 0.35 : 1, opacity: 1, rotation: 0, keyframes: []
+    });
     renderAll();
     notify("Selected layer properties reset.");
   }
