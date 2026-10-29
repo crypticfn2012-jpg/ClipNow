@@ -11,7 +11,7 @@
     "4:5": [864, 1080]
   };
   const state = {
-    project: { name: "Untitled project", ratio: "16:9", items: [], markers: [], trackCounts: { visual: 2, overlay: 2, audio: 2 } },
+    project: { name: "Untitled project", ratio: "16:9", items: [], markers: [], trackCounts: { visual: 1, overlay: 1, audio: 1 } },
     assets: new Map(),
     selectedId: null,
     time: 0,
@@ -103,7 +103,7 @@
     const levels = new Map();
     const visual = activeItem("visual", time);
     const visualAsset = visual ? assetFor(visual) : null;
-    if (visual && visualAsset && visualAsset.type === "video") levels.set(visualAsset.id, volumeAtTime(visual, time));
+    if (visual && visualAsset && visualAsset.type === "video") levels.set(visualAsset.id, visual.sourceMuted ? 0 : volumeAtTime(visual, time));
     state.project.items.forEach(item => {
       if (item.kind !== "audio" || time < item.start || time >= itemEnd(item)) return;
       const asset = assetFor(item);
@@ -146,7 +146,7 @@
   }
   function takeSnapshot() {
     return JSON.stringify({
-      project: { name: state.project.name, ratio: state.project.ratio, items: state.project.items.map(item => Object.assign({}, item)), markers: (state.project.markers || []).map(marker => Object.assign({}, marker)), trackCounts: Object.assign({ visual: 2, overlay: 2, audio: 2 }, state.project.trackCounts || {}) },
+      project: { name: state.project.name, ratio: state.project.ratio, items: state.project.items.map(item => Object.assign({}, item)), markers: (state.project.markers || []).map(marker => Object.assign({}, marker)), trackCounts: Object.assign({ visual: 1, overlay: 1, audio: 1 }, state.project.trackCounts || {}) },
       selectedId: state.selectedId,
       time: state.time
     });
@@ -161,7 +161,7 @@
     const snapshot = JSON.parse(raw);
     state.project = snapshot.project;
     state.project.markers = state.project.markers || [];
-    state.project.trackCounts = Object.assign({ visual: 2, overlay: 2, audio: 2 }, state.project.trackCounts || {});
+    state.project.trackCounts = Object.assign({ visual: 1, overlay: 1, audio: 1 }, state.project.trackCounts || {});
     state.selectedId = snapshot.selectedId;
     state.time = snapshot.time || 0;
     $("projectName").value = state.project.name || "Untitled project";
@@ -849,6 +849,7 @@
           item.duration = Math.max(0.1, original.duration + dx);
         }
       }
+      syncLinkedDuringDrag(item);
       changed = true;
       const x = TRACK_LABEL + item.start * pps;
       element.style.left = x + "px";
@@ -947,7 +948,7 @@
     const activeAudioIds = new Set();
     const activeAssets = new Map();
     if (visual && visibleAsset && visibleAsset.type === "video") {
-      activeAssets.set(visibleAsset.id, volumeAtTime(visual, time));
+      activeAssets.set(visibleAsset.id, visual.sourceMuted ? 0 : volumeAtTime(visual, time));
       seekMediaForItem(visual, time, shouldPlay);
     } else if (visibleAsset && visibleAsset.type === "image") {
       // Image clips render directly from their decoded image.
@@ -2238,9 +2239,10 @@
       const prop = input.dataset.prop;
       const raw = input.type === "checkbox" ? input.checked : input.value;
       applyProperty(item, prop, raw);
+      syncLinkedProperty(item, prop);
       const output = input.parentElement.querySelector('output[data-for="' + prop + '"]');
       if (output) output.textContent = Number(item[prop]).toFixed(2) + (prop === "speed" || prop === "volume" ? "×" : "");
-      if (prop === "start" || prop === "duration" || prop === "in" || prop === "out" || prop === "speed" || prop === "fadeIn" || prop === "fadeOut") renderTimeline();
+      if (["start", "duration", "in", "out", "speed", "fadeIn", "fadeOut", "track", "keyframes", "transition", "transitionDuration"].includes(prop)) { renderTimeline(); renderInspector(); }
       else {
         const block = timelineContent.querySelector('[data-item-id="' + item.id + '"] .ed-clip-name');
         if (block && (prop === "value" || prop === "name")) block.textContent = item.value || item.name || item.kind;
@@ -2250,6 +2252,8 @@
     });
     $("inspectorBody").addEventListener("click", event => {
       if (event.target.closest("#duplicateItemBtn")) duplicateSelected();
+      if (event.target.closest("#inspectorKeyframeBtn")) addKeyframeForSelected();
+      if (event.target.closest("#detachAudioBtn")) detachAudioFromSelected();
     });
     $("openExport").addEventListener("click", openExportModal);
     $("closeExport").addEventListener("click", closeExportModal);
