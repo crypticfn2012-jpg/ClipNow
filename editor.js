@@ -1339,6 +1339,467 @@
     notify("Layer duplicated.");
   }
 
+  function addTrack(kind) {
+    const key = kind === "visual" ? "visual" : kind === "audio" ? "audio" : "overlay";
+    checkpoint();
+    state.project.trackCounts = Object.assign({ visual: 1, overlay: 1, audio: 1 }, state.project.trackCounts || {});
+    state.project.trackCounts[key] = Math.min(12, (Number(state.project.trackCounts[key]) || 1) + 1);
+    renderTimeline();
+    renderInspector();
+    notify((key === "visual" ? "Video" : key === "audio" ? "Audio" : "Overlay") + " track " + state.project.trackCounts[key] + " added.");
+  }
+
+  function addTimelineMarker() {
+    const label = prompt("Marker name", "Marker " + ((state.project.markers || []).length + 1));
+    if (label === null) return;
+    checkpoint();
+    state.project.markers = state.project.markers || [];
+    state.project.markers.push({ id: uid(), time: Math.max(0, state.time), label: label.trim().slice(0, 48) || "Marker" });
+    state.project.markers.sort((a, b) => a.time - b.time);
+    renderTimeline();
+    notify("Marker added at " + fmtTime(state.time) + ".");
+  }
+
+  function addKeyframeForSelected() {
+    let item = selectedItem();
+    if ($("motionTarget").value === "visual") item = activeItem("visual", state.time);
+    if (!item) { notify("Select a video, caption, sticker or image layer first."); return; }
+    if (item.kind === "audio") { notify("Audio keyframes aren't supported yet. Use volume and fade controls instead."); return; }
+    const values = animatedProperties(item, state.time);
+    const frame = {
+      time: Number(state.time.toFixed(3)),
+      x: Number(values.x == null ? 50 : values.x),
+      y: Number(values.y == null ? 50 : values.y),
+      scale: Number(values.scale == null ? 1 : values.scale),
+      rotation: Number(values.rotation) || 0,
+      opacity: Number(values.opacity == null ? 1 : values.opacity)
+    };
+    checkpoint();
+    item.keyframes = Array.isArray(item.keyframes) ? item.keyframes : [];
+    const existing = item.keyframes.findIndex(k => Math.abs(k.time - frame.time) < 0.04);
+    if (existing >= 0) item.keyframes[existing] = frame;
+    else item.keyframes.push(frame);
+    item.keyframes.sort((a, b) => a.time - b.time);
+    state.selectedId = item.id;
+    renderAll();
+    notify("Keyframe set at " + fmtTime(state.time) + ".");
+  }
+
+  function applyMotionPreset(preset) {
+    let item = selectedItem();
+    if ($("motionTarget").value === "visual") item = activeItem("visual", state.time);
+    if (!item) { notify("Select the layer you want to animate first."); return; }
+    if (item.kind === "audio") { notify("Choose a visual or overlay layer for motion presets."); return; }
+    const start = item.start;
+    const end = itemEnd(item);
+    const span = Math.max(0.3, end - start);
+    const base = {
+      x: Number(item.x == null ? 50 : item.x),
+      y: Number(item.y == null ? (item.kind === "caption" ? 84 : 50) : item.y),
+      scale: Number(item.scale == null ? 1 : item.scale),
+      rotation: Number(item.rotation) || 0,
+      opacity: Number(item.opacity == null ? 1 : item.opacity)
+    };
+    const point = (time, vals) => Object.assign({ time: Number(time.toFixed(3)) }, base, vals || {});
+    let frames;
+    if (preset === "punch") {
+      frames = [point(start), point(start + span * 0.34, { scale: base.scale * 1.22 }), point(start + span * 0.52, { scale: base.scale * 1.04 }), point(end, { scale: base.scale })];
+    } else if (preset === "slowzoom") {
+      frames = [point(start, { scale: base.scale * 0.98 }), point(end, { scale: base.scale * 1.2 })];
+    } else if (preset === "shake") {
+      const p = Math.min(0.24, span * 0.22);
+      frames = [point(start), point(start + p * 0.5, { x: base.x - 1.3, rotation: base.rotation - 3.5, scale: base.scale * 1.06 }), point(start + p, { x: base.x + 1.4, rotation: base.rotation + 3.1, scale: base.scale * 1.08 }), point(start + p * 1.5, { x: base.x - 0.9, rotation: base.rotation - 1.9, scale: base.scale * 1.03 }), point(Math.min(end, start + p * 2), base), point(end, base)];
+    } else if (preset === "fade") {
+      frames = [point(start, { opacity: 0 }), point(Math.min(end, start + Math.min(0.45, span * 0.2)), { opacity: base.opacity }), point(end, { opacity: base.opacity })];
+    } else {
+      notify("Unknown motion preset.");
+      return;
+    }
+    checkpoint();
+    item.keyframes = frames.filter((frame, index) => index === 0 || frame.time > frames[index - 1].time + 0.001);
+    state.selectedId = item.id;
+    renderAll();
+    activatePanel("motionPanel");
+    notify("Motion preset applied. Adjust its keyframes or position for your edit.");
+  }
+
+  function copySelected() {
+    const item = selectedItem();
+    if (!item) { notify("Select a clip or layer to copy."); return; }
+    const group = item.linkGroup ? state.project.items.filter(x => x.linkGroup === item.linkGroup) : [item];
+    const base = item.start;
+    state.clipboard = group.map(source => Object.assign({}, JSON.parse(JSON.stringify(source)), { relativeStart: source.start - base }));
+    $("pasteBtn").disabled = false;
+    notify(group.length > 1 ? "Linked video and audio copied." : "Layer copied.");
+  }
+
+  function pasteCopied() {
+    if (!state.clipboard || !state.clipboard.length) return;
+    checkpoint();
+    const base = selectedItem() ? itemEnd(selectedItem()) : state.time;
+    const delta = base - Math.min(...state.clipboard.map(item => item.relativeStart || 0));
+    const newLinkGroup = state.clipboard.length > 1 ? uid() : null;
+    const clones = state.clipboard.map(source => {
+      const copy = Object.assign({}, JSON.parse(JSON.stringify(source)));
+      delete copy.relativeStart;
+      copy.id = uid();
+      copy.start = Math.max(0, base + (source.relativeStart || 0));
+      copy.name = (copy.name || copy.kind) + " copy";
+      if (newLinkGroup) copy.linkGroup = newLinkGroup;
+      else delete copy.linkGroup;
+      if (Array.isArray(copy.keyframes)) copy.keyframes = copy.keyframes.map(k => Object.assign({}, k, { time: k.time + delta }));
+      return copy;
+    });
+    state.project.items.push(...clones);
+    state.selectedId = clones[0].id;
+    state.time = clones[0].start;
+    renderAll();
+    syncMedia(state.time, false);
+    notify(clones.length > 1 ? "Linked layers pasted." : "Layer pasted.");
+  }
+
+  function rippleDeleteSelected() {
+    const item = selectedItem();
+    if (!item) { notify("Select a clip or layer for ripple delete."); return; }
+    const group = item.linkGroup ? state.project.items.filter(x => x.linkGroup === item.linkGroup) : [item];
+    const start = Math.min(...group.map(x => x.start));
+    const end = Math.max(...group.map(itemEnd));
+    const gap = Math.max(0, end - start);
+    if (gap <= 0) { deleteSelected(); return; }
+    const ids = new Set(group.map(x => x.id));
+    checkpoint();
+    state.project.items = state.project.items.filter(x => !ids.has(x.id));
+    state.project.items.forEach(other => {
+      if (other.start >= end - 0.001) {
+        other.start = Math.max(0, other.start - gap);
+        if (Array.isArray(other.keyframes)) other.keyframes = other.keyframes.map(k => Object.assign({}, k, { time: Math.max(other.start, k.time - gap) }));
+      }
+    });
+    (state.project.markers || []).forEach(marker => { if (marker.time >= end) marker.time = Math.max(0, marker.time - gap); });
+    state.selectedId = null;
+    state.time = Math.max(0, Math.min(state.time, projectDuration()));
+    renderAll();
+    syncMedia(state.time, false);
+    notify("Deleted layer and closed a " + gap.toFixed(2) + "s gap.");
+  }
+
+  function syncLinkedProperty(item, prop) {
+    if (!item || !item.linkGroup) return;
+    const partner = state.project.items.find(other => other.id !== item.id && other.linkGroup === item.linkGroup);
+    if (!partner) return;
+    if (["start", "in", "out", "speed"].includes(prop)) {
+      if (prop === "start") partner.start = item.start;
+      else {
+        partner.in = clamp(item.in, 0, Math.max(0, partner.out - 0.05));
+        partner.out = clamp(item.out, partner.in + 0.05, assetFor(partner) ? assetFor(partner).duration : item.out);
+        partner.speed = item.speed;
+      }
+    }
+  }
+
+  function syncLinkedDuringDrag(item) {
+    if (!item || !item.linkGroup) return;
+    const partner = state.project.items.find(other => other.id !== item.id && other.linkGroup === item.linkGroup);
+    if (!partner) return;
+    partner.start = item.start;
+    partner.in = item.in;
+    partner.out = item.out;
+    partner.speed = item.speed;
+  }
+
+  async function detachAudioFromSelected() {
+    const item = selectedItem();
+    if (!item || item.kind !== "visual") { notify("Select a video clip first."); return; }
+    if (item.linkGroup) {
+      const partner = state.project.items.find(other => other.id !== item.id && other.linkGroup === item.linkGroup);
+      if (partner) { setSelected(partner.id); notify("Selected the linked audio track."); }
+      return;
+    }
+    const source = assetFor(item);
+    if (!source || source.type !== "video" || (!source.url && !source.file)) {
+      notify("This clip doesn't have a detachable audio source.");
+      return;
+    }
+    const audio = document.createElement("audio");
+    audio.preload = "auto";
+    audio.crossOrigin = "anonymous";
+    audio.src = source.url;
+    audio.load();
+    try {
+      await waitMedia(audio, "loadedmetadata", "error", 20000);
+      if (!Number.isFinite(audio.duration) || audio.duration <= 0) throw new Error("The browser could not read audio from this video.");
+      checkpoint();
+      const audioAsset = {
+        id: uid(), name: (source.name || "Video") + " — detached audio", type: "audio",
+        size: source.size || 0, file: source.file || null, url: source.url, duration: audio.duration,
+        element: audio, width: 0, height: 0, gainNode: null, sourceNode: null,
+        cloud: !!source.cloud, derivedFrom: source.id
+      };
+      state.assets.set(audioAsset.id, audioAsset);
+      if (state.audioContext) audioGraphFor(audioAsset);
+      const linkGroup = uid();
+      item.linkGroup = linkGroup;
+      item.sourceMuted = true;
+      const linkedAudio = {
+        id: uid(), kind: "audio", assetId: audioAsset.id, name: audioAsset.name, track: 0,
+        start: item.start, in: item.in, out: Math.min(item.out, audio.duration), speed: item.speed,
+        volume: 1, fadeIn: 0, fadeOut: 0, linkGroup: linkGroup, keyframes: []
+      };
+      state.project.items.push(linkedAudio);
+      state.project.trackCounts = Object.assign({ visual: 1, overlay: 1, audio: 1 }, state.project.trackCounts || {});
+      state.project.trackCounts.audio = Math.max(1, state.project.trackCounts.audio);
+      state.selectedId = linkedAudio.id;
+      renderAll();
+      syncMedia(state.time, false);
+      notify("Audio detached. The video and audio remain linked when moved.");
+    } catch (error) {
+      audio.removeAttribute("src");
+      audio.load();
+      notify(error.message || "Could not detach audio from this file.");
+    }
+  }
+
+  function activeCaptionStyle() {
+    return {
+      color: $("captionColor").value || "#ffffff",
+      background: $("captionBackground").value === "box",
+      outline: $("captionBackground").value !== "none",
+      y: Number($("captionPosition").value) || 84
+    };
+  }
+
+  function addCaption(text, start, end, style) {
+    const value = String(text || "").trim();
+    if (!value) return null;
+    const chosen = style || activeCaptionStyle();
+    const item = {
+      id: uid(), kind: "caption", name: "Caption", value: value.slice(0, 300),
+      start: Math.max(0, Number(start) || 0), duration: Math.max(0.15, (Number(end) || (Number(start) + 2.2)) - (Number(start) || 0)),
+      x: 50, y: chosen.y, scale: 1, fontSize: 38, color: chosen.color,
+      background: !!chosen.background, outline: !!chosen.outline, bold: true, opacity: 1,
+      rotation: 0, align: "center", track: 0, keyframes: []
+    };
+    state.project.items.push(item);
+    return item;
+  }
+
+  function addManualCaption() {
+    const text = $("captionText").value.trim();
+    if (!text) { notify("Type a caption first."); return; }
+    checkpoint();
+    const duration = Math.min(5, Math.max(1.5, text.length / 15));
+    const item = addCaption(text, state.time, state.time + duration);
+    state.selectedId = item && item.id;
+    renderAll();
+    notify("Caption added at the playhead.");
+  }
+
+  function parseCaptionTime(value) {
+    const match = String(value).trim().replace(",", ".").match(/(?:(\d+):)?(\d{1,2}):(\d{2})(?:\.(\d{1,3}))?/);
+    if (!match) return NaN;
+    const hours = Number(match[1] || 0);
+    const minutes = Number(match[2] || 0);
+    const seconds = Number(match[3] || 0);
+    const milliseconds = Number(String(match[4] || "0").padEnd(3, "0"));
+    return hours * 3600 + minutes * 60 + seconds + milliseconds / 1000;
+  }
+
+  async function importCaptionFile(file) {
+    if (!file) return;
+    const raw = await file.text();
+    const blocks = raw.replace(/^\uFEFF/, "").replace(/\r/g, "").trim();
+    const entries = [];
+    const timePattern = /((?:\d{1,2}:)?\d{1,2}:\d{2}[,.]\d{1,3})\s*-->\s*((?:\d{1,2}:)?\d{1,2}:\d{2}[,.]\d{1,3})/;
+    blocks.split(/\n\s*\n/).forEach(block => {
+      const lines = block.split("\n");
+      const index = lines.findIndex(line => timePattern.test(line));
+      if (index >= 0) {
+        const match = lines[index].match(timePattern);
+        const text = lines.slice(index + 1).join(" ").replace(/<[^>]+>/g, "").trim();
+        const start = parseCaptionTime(match[1]);
+        const end = parseCaptionTime(match[2]);
+        if (text && Number.isFinite(start) && Number.isFinite(end) && end > start) entries.push({ text, start, end });
+      }
+    });
+    if (!entries.length && file.name.toLowerCase().endsWith(".txt")) {
+      blocks.split(/\n+/).map(line => line.trim()).filter(Boolean).forEach((text, index) => entries.push({ text, start: index * 3, end: index * 3 + 3 }));
+    }
+    if (!entries.length) throw new Error("No subtitle cues were found. Use an SRT, WebVTT or plain text file.");
+    checkpoint();
+    const style = activeCaptionStyle();
+    entries.forEach(entry => addCaption(entry.text, entry.start, entry.end, style));
+    renderAll();
+    $("captionStatus").textContent = entries.length + " caption cues imported.";
+    notify("Imported " + entries.length + " subtitle cues.");
+  }
+
+  function formatSrtTime(time) {
+    const ms = Math.max(0, Math.round((Number(time) || 0) * 1000));
+    const hours = Math.floor(ms / 3600000);
+    const minutes = Math.floor((ms % 3600000) / 60000);
+    const seconds = Math.floor((ms % 60000) / 1000);
+    const milli = ms % 1000;
+    return String(hours).padStart(2, "0") + ":" + String(minutes).padStart(2, "0") + ":" + String(seconds).padStart(2, "0") + "," + String(milli).padStart(3, "0");
+  }
+  function exportCaptionsSrt() {
+    const captions = state.project.items.filter(item => item.kind === "caption").sort((a, b) => a.start - b.start);
+    if (!captions.length) { notify("There are no caption layers to export."); return; }
+    const content = captions.map((item, index) => (index + 1) + "\n" + formatSrtTime(item.start) + " --> " + formatSrtTime(itemEnd(item)) + "\n" + item.value).join("\n\n");
+    downloadBlob(new Blob([content + "\n"], { type: "text/plain;charset=utf-8" }), "clipnow-captions.srt");
+    notify("SRT subtitles exported.");
+  }
+
+  function loadTranscriber() {
+    if (state.transcriberPromise) return state.transcriberPromise;
+    state.transcriberPromise = (async () => {
+      const url = "https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.8.1";
+      const library = await import(url);
+      const pipeline = library.pipeline;
+      if (typeof pipeline !== "function") throw new Error("The speech model library did not load.");
+      return pipeline("automatic-speech-recognition", "Xenova/whisper-tiny.en", {
+        progress_callback: progress => {
+          if (progress && progress.status === "progress" && Number.isFinite(progress.progress)) {
+            $("captionStatus").textContent = "Downloading speech model… " + Math.round(progress.progress) + "%";
+          } else if (progress && progress.status) {
+            $("captionStatus").textContent = "Loading speech model… " + progress.status;
+          }
+        }
+      });
+    })().catch(error => {
+      state.transcriberPromise = null;
+      throw error;
+    });
+    return state.transcriberPromise;
+  }
+
+  function chooseCaptionSource() {
+    let item = selectedItem();
+    if (!item || !["visual", "audio"].includes(item.kind)) item = activeItem("visual", state.time);
+    if (item && ["visual", "audio"].includes(item.kind)) {
+      const asset = assetFor(item);
+      if (asset && (asset.type === "video" || asset.type === "audio")) return { item, asset };
+    }
+    const visual = state.project.items.find(x => x.kind === "visual" && state.time >= x.start && state.time < itemEnd(x));
+    if (visual) {
+      const asset = assetFor(visual);
+      if (asset && (asset.type === "video" || asset.type === "audio")) return { item: visual, asset };
+    }
+    return null;
+  }
+
+  async function audioTo16kMono(arrayBuffer) {
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextClass) throw new Error("This browser does not support local audio processing.");
+    const decodeContext = new AudioContextClass();
+    try {
+      const decoded = await decodeContext.decodeAudioData(arrayBuffer.slice(0));
+      if (decoded.duration > 900) throw new Error("For browser performance, automatic captions are limited to clips shorter than 15 minutes. Try trimming the clip first.");
+      const channels = Array.from({ length: decoded.numberOfChannels }, (_, i) => decoded.getChannelData(i));
+      const sourceRate = decoded.sampleRate;
+      const outLength = Math.floor(decoded.length * 16000 / sourceRate);
+      const mono = new Float32Array(outLength);
+      for (let i = 0; i < outLength; i++) {
+        const srcIndex = i * sourceRate / 16000;
+        const left = Math.floor(srcIndex);
+        const blend = srcIndex - left;
+        let sample = 0;
+        for (const channel of channels) {
+          const a = channel[Math.min(decoded.length - 1, left)] || 0;
+          const b = channel[Math.min(decoded.length - 1, left + 1)] || 0;
+          sample += a + (b - a) * blend;
+        }
+        mono[i] = sample / Math.max(1, channels.length);
+      }
+      return { mono, sampleRate: 16000, duration: decoded.duration };
+    } finally {
+      try { await decodeContext.close(); } catch (_) {}
+    }
+  }
+
+  async function generateAutoCaptions() {
+    const selected = chooseCaptionSource();
+    if (!selected) {
+      $("captionStatus").textContent = "Import a video or audio file and select it on the timeline first.";
+      notify("Select a video or audio clip to generate captions.");
+      return;
+    }
+    const { item, asset } = selected;
+    if (asset.size > 350 * 1024 * 1024) {
+      $("captionStatus").textContent = "This file is too large for browser transcription. Trim or compress it first.";
+      return;
+    }
+    const button = $("generateCaptionsBtn");
+    button.disabled = true;
+    $("captionStatus").textContent = "Preparing audio locally…";
+    try {
+      let bytes;
+      if (asset.file && typeof asset.file.arrayBuffer === "function") bytes = await asset.file.arrayBuffer();
+      else {
+        $("captionStatus").textContent = "Fetching clip audio…";
+        const response = await fetch(asset.url);
+        if (!response.ok) throw new Error("Could not download the selected clip for local transcription.");
+        bytes = await response.arrayBuffer();
+      }
+      const decoded = await audioTo16kMono(bytes);
+      const speed = Math.max(0.25, Number(item.speed) || 1);
+      const trimStart = Math.max(0, Number(item.in) || 0);
+      const trimEnd = Math.min(decoded.duration, Number.isFinite(item.out) ? item.out : decoded.duration);
+      if (trimEnd <= trimStart) throw new Error("The selected clip has no audio in its current trim range.");
+      const crop = decoded.mono.slice(Math.floor(trimStart * decoded.sampleRate), Math.floor(trimEnd * decoded.sampleRate));
+      $("captionStatus").textContent = "Loading speech model (first run may take a while)…";
+      const transcriber = await loadTranscriber();
+      $("captionStatus").textContent = "Transcribing speech in your browser…";
+      const result = await transcriber(crop, { return_timestamps: "word", chunk_length_s: 30, stride_length_s: 5 });
+      const words = Array.isArray(result.chunks) ? result.chunks : [];
+      const chunks = [];
+      let current = null;
+      words.forEach(chunk => {
+        const text = String(chunk.text || "").trim();
+        const stamp = chunk.timestamp || [];
+        const start = Number(stamp[0]);
+        const end = Number(stamp[1]);
+        if (!text || !Number.isFinite(start) || !Number.isFinite(end) || end <= start) return;
+        if (!current || current.words >= 6 || end - current.start > 2.8 || /[.!?]$/.test(current.text)) {
+          if (current) chunks.push(current);
+          current = { text, start, end, words: 1 };
+        } else {
+          current.text += text.startsWith("'") || /^[,.;:!?]/.test(text) ? text : " " + text;
+          current.end = end;
+          current.words++;
+        }
+      });
+      if (current) chunks.push(current);
+      if (!chunks.length && String(result.text || "").trim()) {
+        const wordsFallback = String(result.text).trim().split(/\s+/);
+        const groups = [];
+        for (let i = 0; i < wordsFallback.length; i += 6) groups.push(wordsFallback.slice(i, i + 6).join(" "));
+        const approx = (trimEnd - trimStart) / Math.max(1, groups.length);
+        groups.forEach((text, i) => chunks.push({ text, start: i * approx, end: (i + 1) * approx }));
+      }
+      if (!chunks.length) throw new Error("No speech was recognised. You can still import an SRT/VTT subtitle file or add captions manually.");
+      checkpoint();
+      const style = activeCaptionStyle();
+      const created = [];
+      chunks.forEach(chunk => {
+        const start = item.start + Math.max(0, chunk.start) / speed;
+        const end = item.start + Math.max(chunk.start + 0.15, chunk.end) / speed;
+        const caption = addCaption(chunk.text, start, end, style);
+        if (caption) created.push(caption);
+      });
+      state.selectedId = created.length ? created[0].id : state.selectedId;
+      renderAll();
+      $("captionStatus").textContent = "Created " + created.length + " subtitle cues. Check the wording and timings before export.";
+      notify("Auto captions created. Review them for accuracy.");
+      state.speechModelLoaded = true;
+    } catch (error) {
+      console.error("Auto captions:", error);
+      $("captionStatus").textContent = error.message || "Could not generate captions.";
+    } finally {
+      button.disabled = false;
+      button.textContent = "✦ Generate auto captions";
+    }
+  }
+
   function resetSelected() {
     const item = selectedItem();
     if (!item) return;
