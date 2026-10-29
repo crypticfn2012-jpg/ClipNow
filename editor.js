@@ -1320,24 +1320,19 @@
     const item = selectedItem();
     if (!item) { notify("Select a clip or layer to delete."); return; }
     checkpoint();
-    state.project.items = state.project.items.filter(x => x.id !== item.id);
+    const ids = new Set([item.id]);
+    if (item.linkGroup) state.project.items.filter(x => x.linkGroup === item.linkGroup).forEach(x => ids.add(x.id));
+    state.project.items = state.project.items.filter(x => !ids.has(x.id));
     state.selectedId = null;
     renderAll();
     syncMedia(state.time, false);
-    notify("Layer deleted.");
+    notify(ids.size > 1 ? "Linked video and audio deleted." : "Layer deleted.");
   }
 
   function duplicateSelected() {
-    const item = selectedItem();
-    if (!item) return;
-    checkpoint();
-    const copy = Object.assign({}, item, { id: uid(), start: itemEnd(item) });
-    copy.name = (item.name || item.kind) + " copy";
-    state.project.items.push(copy);
-    state.selectedId = copy.id;
-    state.time = copy.start;
-    renderAll();
-    notify("Layer duplicated.");
+    if (!selectedItem()) return;
+    copySelected();
+    pasteCopied();
   }
 
   function addTrack(kind) {
@@ -2162,6 +2157,29 @@
     document.querySelectorAll(".editor-tool-tab").forEach(tab => tab.addEventListener("click", () => activatePanel(tab.dataset.panel)));
     $("jumpToMedia").addEventListener("click", () => activatePanel("mediaPanel"));
     $("addTextBtn").addEventListener("click", () => addText($("newText").value));
+    $("addCaptionBtn").addEventListener("click", addManualCaption);
+    $("generateCaptionsBtn").addEventListener("click", generateAutoCaptions);
+    $("importCaptionsBtn").addEventListener("click", () => $("captionFileInput").click());
+    $("captionFileInput").addEventListener("change", async event => {
+      const file = event.target.files && event.target.files[0];
+      if (file) {
+        try { await importCaptionFile(file); }
+        catch (error) { $("captionStatus").textContent = error.message || "Subtitle import failed."; }
+      }
+      event.target.value = "";
+    });
+    $("exportCaptionsBtn").addEventListener("click", exportCaptionsSrt);
+    $("addKeyframeBtn").addEventListener("click", addKeyframeForSelected);
+    $("clearKeyframesBtn").addEventListener("click", () => {
+      const item = selectedItem();
+      if (!item || !item.keyframes || !item.keyframes.length) { notify("The selected layer has no keyframes."); return; }
+      checkpoint();
+      item.keyframes = [];
+      renderAll();
+      notify("Keyframes cleared.");
+    });
+    $("jumpToCaptions").addEventListener("click", () => activatePanel("captionsPanel"));
+    document.querySelectorAll("[data-motion]").forEach(button => button.addEventListener("click", () => applyMotionPreset(button.dataset.motion)));
     document.querySelectorAll("[data-text-preset]").forEach(button => {
       button.addEventListener("click", () => {
         const preset = button.dataset.textPreset;
@@ -2182,6 +2200,18 @@
     $("redoBtn").addEventListener("click", redo);
     $("splitBtn").addEventListener("click", splitSelected);
     $("deleteBtn").addEventListener("click", deleteSelected);
+    $("rippleDeleteBtn").addEventListener("click", rippleDeleteSelected);
+    $("copyBtn").addEventListener("click", copySelected);
+    $("pasteBtn").addEventListener("click", pasteCopied);
+    $("addMarkerBtn").addEventListener("click", addTimelineMarker);
+    $("snapBtn").addEventListener("click", () => {
+      state.snapEnabled = !state.snapEnabled;
+      renderTimeline();
+      notify(state.snapEnabled ? "Magnetic snapping enabled." : "Magnetic snapping disabled.");
+    });
+    $("addVideoTrackBtn").addEventListener("click", () => addTrack("visual"));
+    $("addAudioTrackBtn").addEventListener("click", () => addTrack("audio"));
+    $("addOverlayTrackBtn").addEventListener("click", () => addTrack("overlay"));
     $("playPause").addEventListener("click", () => state.playing ? pause() : play());
     $("skipBack").addEventListener("click", () => seekTo(state.time - 1));
     $("skipForward").addEventListener("click", () => seekTo(state.time + 1));
@@ -2229,7 +2259,11 @@
       }
     });
     $("inspectorBody").addEventListener("change", event => {
-      if (event.target.matches("[data-prop]")) delete event.target.dataset.historySaved;
+      if (!event.target.matches("[data-prop]")) return;
+      delete event.target.dataset.historySaved;
+      renderTimeline();
+      renderInspector();
+      syncMedia(state.time, false);
     });
     $("inspectorBody").addEventListener("input", event => {
       const input = event.target;
@@ -2242,7 +2276,7 @@
       syncLinkedProperty(item, prop);
       const output = input.parentElement.querySelector('output[data-for="' + prop + '"]');
       if (output) output.textContent = Number(item[prop]).toFixed(2) + (prop === "speed" || prop === "volume" ? "×" : "");
-      if (["start", "duration", "in", "out", "speed", "fadeIn", "fadeOut", "track", "keyframes", "transition", "transitionDuration"].includes(prop)) { renderTimeline(); renderInspector(); }
+      if (["start", "duration", "in", "out", "speed", "fadeIn", "fadeOut", "track", "keyframes", "transition", "transitionDuration"].includes(prop)) renderTimeline();
       else {
         const block = timelineContent.querySelector('[data-item-id="' + item.id + '"] .ed-clip-name');
         if (block && (prop === "value" || prop === "name")) block.textContent = item.value || item.name || item.kind;
@@ -2271,12 +2305,15 @@
         return;
       }
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "y") { event.preventDefault(); redo(); return; }
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "c" && !typing) { event.preventDefault(); copySelected(); return; }
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "v" && !typing) { event.preventDefault(); pasteCopied(); return; }
       if (typing || $("exportModal").hidden === false) {
         if (event.key === "Escape" && !$("exportModal").hidden) closeExportModal();
         return;
       }
       if (event.code === "Space") { event.preventDefault(); state.playing ? pause() : play(); }
       else if (event.key.toLowerCase() === "s") { event.preventDefault(); splitSelected(); }
+      else if (event.key.toLowerCase() === "m") { event.preventDefault(); addTimelineMarker(); }
       else if (event.key === "Delete" || event.key === "Backspace") { event.preventDefault(); deleteSelected(); }
       else if (event.key === "ArrowLeft") { event.preventDefault(); seekTo(state.time - 1 / 30); }
       else if (event.key === "ArrowRight") { event.preventDefault(); seekTo(state.time + 1 / 30); }
