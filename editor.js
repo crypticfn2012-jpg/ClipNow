@@ -940,24 +940,29 @@
   }
 
   async function syncMedia(time, shouldPlay) {
-    const visual = activeItem("visual", time);
+    const visualItems = state.project.items
+      .filter(item => item.kind === "visual" && time >= item.start && time < itemEnd(item))
+      .sort((a, b) => (Number(a.track) || 0) - (Number(b.track) || 0) || a.start - b.start);
+    const visual = visualItems.length ? visualItems[visualItems.length - 1] : null;
     const visibleAsset = visual ? assetFor(visual) : null;
     const visibleVideoId = visibleAsset && visibleAsset.type === "video" ? visibleAsset.id : null;
     const visibleVideoItemId = visibleVideoId && visual ? visual.id : null;
-    if (state.currentVisualAsset && state.currentVisualAsset !== visibleVideoId) {
-      const prior = state.assets.get(state.currentVisualAsset);
-      if (prior && prior.element && prior.type === "video") prior.element.pause();
-    }
     state.currentVisualAsset = visibleVideoId;
     state.currentVisualItemId = visibleVideoItemId;
+    state.currentVisualSignature = visualItems.map(item => item.id + ":" + (item.assetId || "")).join("|");
+
     const activeAudioIds = new Set();
     const activeAssets = new Map();
-    if (visual && visibleAsset && visibleAsset.type === "video") {
-      activeAssets.set(visibleAsset.id, visual.sourceMuted ? 0 : volumeAtTime(visual, time));
-      seekMediaForItem(visual, time, shouldPlay);
-    } else if (visibleAsset && visibleAsset.type === "image") {
-      // Image clips render directly from their decoded image.
-    }
+    const activeVideoIds = new Set();
+    visualItems.forEach(item => {
+      const asset = assetFor(item);
+      if (!asset || asset.type !== "video" || !asset.element) return;
+      activeVideoIds.add(asset.id);
+      const volume = item.sourceMuted ? 0 : volumeAtTime(item, time);
+      activeAssets.set(asset.id, Math.max(activeAssets.get(asset.id) || 0, volume));
+      seekMediaForItem(item, time, shouldPlay);
+    });
+
     state.project.items.forEach(item => {
       if (item.kind !== "audio" || time < item.start || time >= itemEnd(item)) return;
       const asset = assetFor(item);
@@ -975,9 +980,10 @@
         if (p && p.catch) p.catch(() => {});
       } else el.pause();
     });
+
     for (const asset of state.assets.values()) {
       if (asset.type === "audio" && asset.element && !activeAudioIds.has(asset.id)) asset.element.pause();
-      if (asset.type === "video" && asset.element && asset.id !== visibleVideoId) asset.element.pause();
+      if (asset.type === "video" && asset.element && !activeVideoIds.has(asset.id)) asset.element.pause();
       if (asset.gainNode) {
         const active = activeAssets.get(asset.id);
         const target = active == null ? 0 : clamp(active, 0, 2);
@@ -1041,8 +1047,11 @@
     const visual = activeItem("visual", state.time);
     const asset = visual ? assetFor(visual) : null;
     applyAudioLevels(state.time);
-    if ((asset && asset.type === "video" ? asset.id : null) !== state.currentVisualAsset ||
-        (asset && asset.type === "video" ? visual.id : null) !== state.currentVisualItemId) {
+    const visualSignature = state.project.items
+      .filter(item => item.kind === "visual" && state.time >= item.start && state.time < itemEnd(item))
+      .sort((a, b) => (Number(a.track) || 0) - (Number(b.track) || 0) || a.start - b.start)
+      .map(item => item.id + ":" + (item.assetId || "")).join("|");
+    if (visualSignature !== state.currentVisualSignature) {
       syncMedia(state.time, true);
     } else {
       drawFrame();
@@ -1116,55 +1125,61 @@
     ctx.fillStyle = "#000";
     ctx.fillRect(0, 0, w, h);
 
-    const rawVisual = activeItem("visual", state.time);
+    const visualItems = state.project.items
+      .filter(item => item.kind === "visual" && state.time >= item.start && state.time < itemEnd(item))
+      .sort((a, b) => (Number(a.track) || 0) - (Number(b.track) || 0) || a.start - b.start);
+    const rawVisual = visualItems.length ? visualItems[visualItems.length - 1] : null;
     const visual = rawVisual ? animatedProperties(rawVisual, state.time) : null;
-    if (visual) {
-      const asset = assetFor(visual);
-      if (asset && asset.element && (asset.type === "image" || (asset.type === "video" && asset.element.readyState >= 2))) {
-        const d = Math.max(0.001, itemDuration(rawVisual));
-        const elapsed = state.time - rawVisual.start;
-        let alpha = clamp(visual.opacity == null ? 1 : visual.opacity, 0, 1);
-        if (rawVisual.fadeIn > 0) alpha = Math.min(alpha, clamp(elapsed / rawVisual.fadeIn, 0, 1));
-        if (rawVisual.fadeOut > 0) alpha = Math.min(alpha, clamp((d - elapsed) / rawVisual.fadeOut, 0, 1));
-        const look = LOOK_PRESETS[visual.look || "clean"] || LOOK_PRESETS.clean;
-        const brightness = clamp((Number(visual.brightness) || 0) + (look.brightness - 1), -0.8, 1.5) + 1;
-        const contrast = clamp((Number(visual.contrast) || 1) * look.contrast, 0.2, 2.5);
-        const saturate = clamp((Number(visual.saturate) == null ? 1 : Number(visual.saturate)) * look.saturate, 0, 3);
-        const hue = (Number(visual.hue) || 0) + look.hue;
-        const sepia = clamp(look.sepia * 100, 0, 100);
-        const grey = clamp(look.grayscale * 100, 0, 100);
-        const blur = clamp(Number(visual.blur) || 0, 0, 8);
-        const scale = clamp(Number(visual.scale) || 1, 0.1, 3);
-        const x = clamp(visual.x == null ? 50 : visual.x, 0, 100) / 100 * w;
-        const y = clamp(visual.y == null ? 50 : visual.y, 0, 100) / 100 * h;
-        ctx.save();
-        ctx.globalAlpha = alpha;
-        ctx.translate(x, y);
-        ctx.rotate((Number(visual.rotation) || 0) * Math.PI / 180);
-        ctx.filter = "brightness(" + brightness + ") contrast(" + contrast + ") saturate(" + saturate + ") hue-rotate(" + hue + "deg) sepia(" + sepia + "%) grayscale(" + grey + "%) blur(" + blur + "px)";
-        drawFittedImage(asset.element, visual.fit || "contain", -w * scale / 2, -h * scale / 2, w * scale, h * scale);
-        ctx.filter = "none";
-        const temperature = clamp((Number(visual.temperature) || 0) + look.temperature, -1, 1);
-        if (temperature > 0.01) {
-          ctx.fillStyle = "rgba(255,151,77," + (temperature * 0.22) + ")";
-          ctx.fillRect(-w * scale / 2, -h * scale / 2, w * scale, h * scale);
-        } else if (temperature < -0.01) {
-          ctx.fillStyle = "rgba(72,145,255," + (-temperature * 0.2) + ")";
-          ctx.fillRect(-w * scale / 2, -h * scale / 2, w * scale, h * scale);
-        }
-        const vignette = clamp(Number(visual.vignette) || 0, 0, 1);
-        if (vignette > 0.01) {
-          const radius = Math.max(w, h) * 0.72 * scale;
-          const gradient = ctx.createRadialGradient(0, 0, Math.min(w, h) * 0.15 * scale, 0, 0, radius);
-          gradient.addColorStop(0, "rgba(0,0,0,0)");
-          gradient.addColorStop(0.55, "rgba(0,0,0," + (vignette * 0.12) + ")");
-          gradient.addColorStop(1, "rgba(0,0,0," + (vignette * 0.88) + ")");
-          ctx.fillStyle = gradient;
-          ctx.fillRect(-w * scale / 2, -h * scale / 2, w * scale, h * scale);
-        }
-        ctx.restore();
+
+    // Draw every active visual track from bottom to top so upper tracks work as B-roll/overlays.
+    visualItems.forEach(raw => {
+      const item = animatedProperties(raw, state.time);
+      const asset = assetFor(item);
+      if (!asset || !asset.element || !(asset.type === "image" || (asset.type === "video" && asset.element.readyState >= 2))) return;
+      const d = Math.max(0.001, itemDuration(raw));
+      const elapsed = state.time - raw.start;
+      let alpha = clamp(item.opacity == null ? 1 : item.opacity, 0, 1);
+      if (raw.fadeIn > 0) alpha = Math.min(alpha, clamp(elapsed / raw.fadeIn, 0, 1));
+      if (raw.fadeOut > 0) alpha = Math.min(alpha, clamp((d - elapsed) / raw.fadeOut, 0, 1));
+      const look = LOOK_PRESETS[item.look || "clean"] || LOOK_PRESETS.clean;
+      const brightness = clamp((Number(item.brightness) || 0) + (look.brightness - 1), -0.8, 1.5) + 1;
+      const contrast = clamp((Number(item.contrast) || 1) * look.contrast, 0.2, 2.5);
+      const satValue = Number(item.saturate);
+      const saturate = clamp((Number.isFinite(satValue) ? satValue : 1) * look.saturate, 0, 3);
+      const hue = (Number(item.hue) || 0) + look.hue;
+      const sepia = clamp(look.sepia * 100, 0, 100);
+      const grey = clamp(look.grayscale * 100, 0, 100);
+      const blur = clamp(Number(item.blur) || 0, 0, 8);
+      const scale = clamp(Number(item.scale) || 1, 0.1, 3);
+      const x = clamp(item.x == null ? 50 : item.x, 0, 100) / 100 * w;
+      const y = clamp(item.y == null ? 50 : item.y, 0, 100) / 100 * h;
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      ctx.translate(x, y);
+      ctx.rotate((Number(item.rotation) || 0) * Math.PI / 180);
+      ctx.filter = "brightness(" + brightness + ") contrast(" + contrast + ") saturate(" + saturate + ") hue-rotate(" + hue + "deg) sepia(" + sepia + "%) grayscale(" + grey + "%) blur(" + blur + "px)";
+      drawFittedImage(asset.element, item.fit || "contain", -w * scale / 2, -h * scale / 2, w * scale, h * scale);
+      ctx.filter = "none";
+      const temperature = clamp((Number(item.temperature) || 0) + look.temperature, -1, 1);
+      if (temperature > 0.01) {
+        ctx.fillStyle = "rgba(255,151,77," + (temperature * 0.22) + ")";
+        ctx.fillRect(-w * scale / 2, -h * scale / 2, w * scale, h * scale);
+      } else if (temperature < -0.01) {
+        ctx.fillStyle = "rgba(72,145,255," + (-temperature * 0.2) + ")";
+        ctx.fillRect(-w * scale / 2, -h * scale / 2, w * scale, h * scale);
       }
-    }
+      const vignette = clamp(Number(item.vignette) || 0, 0, 1);
+      if (vignette > 0.01) {
+        const radius = Math.max(w, h) * 0.72 * scale;
+        const gradient = ctx.createRadialGradient(0, 0, Math.min(w, h) * 0.15 * scale, 0, 0, radius);
+        gradient.addColorStop(0, "rgba(0,0,0,0)");
+        gradient.addColorStop(0.55, "rgba(0,0,0," + (vignette * 0.12) + ")");
+        gradient.addColorStop(1, "rgba(0,0,0," + (vignette * 0.88) + ")");
+        ctx.fillStyle = gradient;
+        ctx.fillRect(-w * scale / 2, -h * scale / 2, w * scale, h * scale);
+      }
+      ctx.restore();
+    });
 
     const overlays = state.project.items.filter(item =>
       ["text", "caption", "sticker", "imageOverlay"].includes(item.kind) &&
