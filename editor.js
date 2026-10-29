@@ -648,50 +648,63 @@
       tick.textContent = fmtShort(t);
       timelineRuler.appendChild(tick);
     }
+
     const lanes = {
       visual: timelineContent.querySelector('[data-track="visual"]'),
       overlay: timelineContent.querySelector('[data-track="overlay"]'),
       audio: timelineContent.querySelector('[data-track="audio"]')
     };
-    Object.values(lanes).forEach(lane => {
+    const trackNames = { visual: "Video", overlay: "Overlay", audio: "Audio" };
+    let totalHeight = 29;
+    Object.keys(lanes).forEach(key => {
+      const lane = lanes[key];
+      const count = Math.max(1, Math.floor(Number(state.project.trackCounts && state.project.trackCounts[key]) || 1));
+      lane.style.height = (count * 48 + 12) + "px";
+      lane.style.setProperty("--track-count", count);
+      lane.style.backgroundImage = "repeating-linear-gradient(to bottom, transparent 0, transparent 47px, #242424 47px, #242424 48px)";
+      const label = lane.querySelector(".editor-track-label");
+      if (label) label.innerHTML = "<span>" + (key === "visual" ? "▣" : key === "audio" ? "♫" : "T") + "</span>" + trackNames[key] + (count > 1 ? " ×" + count : "");
       lane.querySelectorAll(".editor-timeline-clip").forEach(clip => clip.remove());
       lane.classList.remove("has-items");
+      totalHeight += count * 48 + 12;
     });
+    timelineContent.style.minHeight = (totalHeight + 8) + "px";
+
     state.project.items.forEach(item => {
-      const lane = lanes[itemTrack(item)];
+      const laneKey = itemTrack(item);
+      const lane = lanes[laneKey];
       if (!lane) return;
       lane.classList.add("has-items");
+      const count = Math.max(1, Math.floor(Number(state.project.trackCounts && state.project.trackCounts[laneKey]) || 1));
+      item.track = clamp(Math.floor(Number(item.track) || 0), 0, count - 1);
       const asset = assetFor(item);
+      const linked = !!item.linkGroup;
+      const hasKeys = Array.isArray(item.keyframes) && item.keyframes.length > 0;
       const clip = document.createElement("div");
-      clip.className = "editor-timeline-clip kind-" + item.kind + (item.kind === "visual" && asset && asset.type === "image" ? " kind-image" : "") + (state.selectedId === item.id ? " selected" : "");
+      clip.className = "editor-timeline-clip kind-" + item.kind +
+        (item.kind === "visual" && asset && asset.type === "image" ? " kind-image" : "") +
+        (state.selectedId === item.id ? " selected" : "") +
+        (linked ? " is-linked" : "") + (hasKeys ? " has-keyframes" : "");
       clip.style.left = (TRACK_LABEL + Math.max(0, item.start) * pps) + "px";
+      clip.style.top = (6 + item.track * 48) + "px";
+      clip.style.height = "36px";
       clip.style.width = Math.max(12, itemDuration(item) * pps) + "px";
       clip.dataset.itemId = item.id;
-      clip.title = (item.name || item.value || item.kind) + " · " + fmtTime(item.start) + "–" + fmtTime(itemEnd(item));
+      clip.title = (item.name || item.value || item.kind) + " · Track " + (item.track + 1) + " · " + fmtTime(item.start) + "–" + fmtTime(itemEnd(item));
       const name = document.createElement("span");
       name.className = "ed-clip-name";
-      name.textContent = item.kind === "text" ? "T · " + (item.value || "Text") : item.kind === "sticker" ? (item.value || "Sticker") : (item.name || (asset && asset.name) || item.kind);
+      name.textContent = item.kind === "text" || item.kind === "caption" ? "T · " + (item.value || "Text") : item.kind === "sticker" ? (item.value || "Sticker") : (item.name || (asset && asset.name) || item.kind);
       const meta = document.createElement("span");
       meta.className = "ed-clip-meta";
       meta.textContent = fmtShort(itemDuration(item)) + (item.kind === "visual" || item.kind === "audio" ? " · " + (Number(item.speed) || 1).toFixed(2) + "×" : "");
       clip.append(name, meta);
-      if (item.kind === "visual" || item.kind === "audio") {
-        const left = document.createElement("span");
-        left.className = "ed-trim-handle ed-trim-left";
-        left.dataset.edge = "left";
-        const right = document.createElement("span");
-        right.className = "ed-trim-handle ed-trim-right";
-        right.dataset.edge = "right";
-        clip.append(left, right);
-      } else {
-        const left = document.createElement("span");
-        left.className = "ed-trim-handle ed-trim-left";
-        left.dataset.edge = "left";
-        const right = document.createElement("span");
-        right.className = "ed-trim-handle ed-trim-right";
-        right.dataset.edge = "right";
-        clip.append(left, right);
-      }
+      const left = document.createElement("span");
+      left.className = "ed-trim-handle ed-trim-left";
+      left.dataset.edge = "left";
+      const right = document.createElement("span");
+      right.className = "ed-trim-handle ed-trim-right";
+      right.dataset.edge = "right";
+      clip.append(left, right);
       clip.addEventListener("pointerdown", event => startItemDrag(event, item, clip));
       clip.addEventListener("click", event => {
         event.stopPropagation();
@@ -699,14 +712,55 @@
       });
       lane.appendChild(clip);
     });
+
+    const markerLayer = $("markerLayer");
+    if (markerLayer) {
+      markerLayer.replaceChildren();
+      (state.project.markers || []).forEach(marker => {
+        const el = document.createElement("div");
+        el.className = "editor-timeline-marker";
+        el.style.left = (TRACK_LABEL + Math.max(0, marker.time) * pps) + "px";
+        el.title = (marker.label || "Marker") + " · " + fmtTime(marker.time);
+        el.dataset.markerId = marker.id;
+        const text = document.createElement("span");
+        text.textContent = marker.label || "Marker";
+        el.appendChild(text);
+        el.addEventListener("click", event => {
+          event.stopPropagation();
+          seekTo(marker.time);
+        });
+        el.addEventListener("dblclick", event => {
+          event.stopPropagation();
+          const next = prompt("Rename marker", marker.label || "Marker");
+          if (next === null) return;
+          checkpoint();
+          marker.label = next.trim().slice(0, 48) || "Marker";
+          renderTimeline();
+        });
+        el.addEventListener("contextmenu", event => {
+          event.preventDefault();
+          event.stopPropagation();
+          if (!confirm("Delete this marker?")) return;
+          checkpoint();
+          state.project.markers = state.project.markers.filter(m => m.id !== marker.id);
+          renderTimeline();
+        });
+        markerLayer.appendChild(el);
+      });
+    }
     playhead.style.left = (TRACK_LABEL + state.time * pps) + "px";
     $("timelineDuration").textContent = state.project.items.length + " layer" + (state.project.items.length === 1 ? "" : "s") + " · " + fmtShort(duration);
     $("timelineStatus").textContent = state.playing ? "Playing" : "Ready";
+    $("snapBtn").classList.toggle("is-on", state.snapEnabled);
+    $("snapBtn").textContent = state.snapEnabled ? "Snap on" : "Snap off";
+    $("snapBtn").setAttribute("aria-pressed", state.snapEnabled ? "true" : "false");
+    $("pasteBtn").disabled = !state.clipboard;
     updateClock();
   }
 
   function snapStart(value, movingItem) {
     let best = Math.max(0, value);
+    if (!state.snapEnabled) return best;
     let distance = 0.12;
     const targets = [state.time];
     state.project.items.forEach(item => {
