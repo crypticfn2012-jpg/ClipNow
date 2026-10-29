@@ -1511,7 +1511,6 @@
     if (!state.clipboard || !state.clipboard.length) return;
     checkpoint();
     const base = selectedItem() ? itemEnd(selectedItem()) : state.time;
-    const delta = base - Math.min(...state.clipboard.map(item => item.relativeStart || 0));
     const newLinkGroup = state.clipboard.length > 1 ? uid() : null;
     const clones = state.clipboard.map(source => {
       const copy = Object.assign({}, JSON.parse(JSON.stringify(source)));
@@ -1564,8 +1563,11 @@
     const partner = state.project.items.find(other => other.id !== item.id && other.linkGroup === item.linkGroup);
     if (!partner) return;
     if (["start", "in", "out", "speed"].includes(prop)) {
-      if (prop === "start") partner.start = item.start;
-      else {
+      if (prop === "start") {
+        const previous = Number(partner.start) || 0;
+        partner.start = item.start;
+        shiftLayerTiming(partner, partner.start - previous);
+      } else {
         partner.in = clamp(item.in, 0, Math.max(0, partner.out - 0.05));
         partner.out = clamp(item.out, partner.in + 0.05, assetFor(partner) ? assetFor(partner).duration : item.out);
         partner.speed = item.speed;
@@ -1577,7 +1579,9 @@
     if (!item || !item.linkGroup) return;
     const partner = state.project.items.find(other => other.id !== item.id && other.linkGroup === item.linkGroup);
     if (!partner) return;
+    const previous = Number(partner.start) || 0;
     partner.start = item.start;
+    shiftLayerTiming(partner, partner.start - previous);
     partner.in = item.in;
     partner.out = item.out;
     partner.speed = item.speed;
