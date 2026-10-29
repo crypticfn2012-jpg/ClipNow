@@ -925,7 +925,7 @@
         }
       }
       const timingShift = item.start - original.start;
-      if (edge === "move" || (edge === "left" && (item.kind === "visual" || item.kind === "audio"))) {
+      if (edge === "move" || edge === "left") {
         if (original.keyframes) item.keyframes = original.keyframes.map(frame => Object.assign({}, frame, { time: Number(frame.time) + timingShift }));
         if (original.wordTimings) item.wordTimings = original.wordTimings.map(word => Object.assign({}, word, { start: Number(word.start) + timingShift, end: Number(word.end) + timingShift }));
       }
