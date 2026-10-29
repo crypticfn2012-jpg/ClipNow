@@ -105,7 +105,7 @@
           </section>
           <section class="editor-tool-panel" id="captionsPanel" role="tabpanel" hidden>
             <div class="editor-panel-heading"><div><h2>Auto captions</h2><p>Generate subtitles locally from your clip's speech.</p></div></div>
-            <div class="ed-caption-notice">First run downloads a speech model. Processing runs in your browser and may take a while on long videos.</div>
+            <div class="ed-caption-notice">The first run downloads a multilingual speech model. Captions are processed in your browser; long clips may take a while. Check names and timings before exporting.</div>
             <button class="ed-wide-button" id="generateCaptionsBtn">✦ Generate auto captions</button>
             <div class="ed-caption-progress" id="captionStatus" role="status">Ready to generate captions.</div>
             <div class="ed-form-field"><label for="captionText">Or add a caption manually</label><textarea id="captionText" rows="3" maxlength="300" placeholder="Type the words you want on screen…"></textarea></div>
@@ -129,7 +129,7 @@
               <button class="ed-motion-preset" data-motion="fade"><strong>Fade in</strong><span>Animate opacity from zero</span></button>
             </div>
             <button class="ed-wide-button" id="addKeyframeBtn">◇ Set keyframe at playhead</button>
-            <p class="ed-drop-hint">Set two or more keyframes at different times. Position, scale, rotation and opacity interpolate smoothly between them.</p>
+            <p class="ed-drop-hint">Set a keyframe, move the playhead and change an animated property to create the next one. Position, scale, rotation, opacity and audio volume can animate with custom easing.</p>
             <div class="ed-caption-actions"><button class="ed-action" id="clearKeyframesBtn">Clear keyframes</button><button class="ed-action" id="jumpToCaptions">Edit captions</button></div>
           </section>
         </div>
