@@ -61,6 +61,8 @@
           <button class="editor-tool-tab" data-panel="textPanel" role="tab" aria-selected="false"><span>T</span> Text</button>
           <button class="editor-tool-tab" data-panel="audioPanel" role="tab" aria-selected="false"><span>♫</span> Audio</button>
           <button class="editor-tool-tab" data-panel="stickersPanel" role="tab" aria-selected="false"><span>✦</span> Stickers</button>
+          <button class="editor-tool-tab" data-panel="captionsPanel" role="tab" aria-selected="false"><span>CC</span> Captions</button>
+          <button class="editor-tool-tab" data-panel="motionPanel" role="tab" aria-selected="false"><span>◇</span> Motion</button>
         </div>
         <div class="editor-panel-body">
           <section class="editor-tool-panel active" id="mediaPanel" role="tabpanel">
@@ -100,6 +102,35 @@
             <div class="editor-panel-heading"><div><h2>Stickers</h2><p>Quick reactions for your highlights.</p></div></div>
             <div class="ed-sticker-grid" id="stickerGrid"></div>
             <p class="ed-drop-hint">Stickers are separate layers. Select one on the timeline to move, resize or change its duration.</p>
+          </section>
+          <section class="editor-tool-panel" id="captionsPanel" role="tabpanel" hidden>
+            <div class="editor-panel-heading"><div><h2>Auto captions</h2><p>Generate subtitles locally from your clip's speech.</p></div></div>
+            <div class="ed-caption-notice">The first run downloads a multilingual speech model. Captions are processed in your browser; long clips may take a while. Check names and timings before exporting.</div>
+            <button class="ed-wide-button" id="generateCaptionsBtn">✦ Generate auto captions</button>
+            <div class="ed-caption-progress" id="captionStatus" role="status">Ready to generate captions.</div>
+            <div class="ed-form-field"><label for="captionText">Or add a caption manually</label><textarea id="captionText" rows="3" maxlength="300" placeholder="Type the words you want on screen…"></textarea></div>
+            <button class="ed-wide-button ed-secondary-button" id="addCaptionBtn">＋ Add caption at playhead</button>
+            <div class="ed-caption-controls">
+              <label for="captionColor">Text colour</label><input id="captionColor" type="color" value="#ffffff">
+              <label for="captionBackground">Background</label><select id="captionBackground"><option value="box">Black box</option><option value="outline">Outline only</option><option value="none">No background</option></select>
+              <label for="captionPosition">Position</label><select id="captionPosition"><option value="84">Lower third</option><option value="50">Centre</option><option value="16">Top</option></select>
+              <label for="captionHighlight">Word highlight</label><select id="captionHighlight"><option value="on">Highlight spoken word</option><option value="off">No word highlight</option></select>
+            </div>
+            <div class="ed-caption-actions"><button class="ed-action" id="importCaptionsBtn">Import SRT/VTT</button><input id="captionFileInput" class="sr-only" type="file" accept=".srt,.vtt,.txt,text/plain,text/vtt"><button class="ed-action" id="exportCaptionsBtn">Export SRT</button></div>
+            <p class="ed-drop-hint">Imported subtitle files become editable timeline layers. Captions are burned into your exported video.</p>
+          </section>
+          <section class="editor-tool-panel" id="motionPanel" role="tabpanel" hidden>
+            <div class="editor-panel-heading"><div><h2>Motion & keyframes</h2><p>Animate a clip, caption or sticker over time.</p></div></div>
+            <div class="ed-form-field"><label for="motionTarget">Apply to</label><select id="motionTarget"><option value="selected">Selected layer</option><option value="visual">Current video clip</option></select></div>
+            <div class="ed-motion-grid">
+              <button class="ed-motion-preset" data-motion="punch"><strong>Punch zoom</strong><span>Quick zoom in and back out</span></button>
+              <button class="ed-motion-preset" data-motion="slowzoom"><strong>Slow zoom</strong><span>Subtle cinematic movement</span></button>
+              <button class="ed-motion-preset" data-motion="shake"><strong>Shake</strong><span>Gaming impact effect</span></button>
+              <button class="ed-motion-preset" data-motion="fade"><strong>Fade in</strong><span>Animate opacity from zero</span></button>
+            </div>
+            <button class="ed-wide-button" id="addKeyframeBtn">◇ Set keyframe at playhead</button>
+            <p class="ed-drop-hint">Set a keyframe, move the playhead and change an animated property to create the next one. Position, scale, rotation, opacity and audio volume can animate with custom easing.</p>
+            <div class="ed-caption-actions"><button class="ed-action" id="clearKeyframesBtn">Clear keyframes</button><button class="ed-action" id="jumpToCaptions">Edit captions</button></div>
           </section>
         </div>
       </aside>
@@ -141,6 +172,14 @@
         <div class="editor-timeline-actions">
           <button class="ed-action" id="splitBtn" title="Split selected clip at playhead (S)">✂ <span>Split</span></button>
           <button class="ed-action" id="deleteBtn" title="Delete selected clip (Delete)">⌫ <span>Delete</span></button>
+          <button class="ed-action" id="rippleDeleteBtn" title="Delete selected clip and close the gap">Ripple delete</button>
+          <button class="ed-action" id="copyBtn" title="Copy selected clip (Ctrl+C)">Copy</button>
+          <button class="ed-action" id="pasteBtn" title="Paste copied clip (Ctrl+V)" disabled>Paste</button>
+          <button class="ed-action" id="addMarkerBtn" title="Add marker at playhead (M)">＋ Marker</button>
+          <button class="ed-action is-on" id="snapBtn" aria-pressed="true" title="Toggle magnetic snapping">Snap on</button>
+          <button class="ed-action" id="addVideoTrackBtn" title="Add another video layer">＋ Video track</button>
+          <button class="ed-action" id="addAudioTrackBtn" title="Add another audio layer">＋ Audio track</button>
+          <button class="ed-action" id="addOverlayTrackBtn" title="Add another overlay layer">＋ Overlay track</button>
           <span class="editor-divider"></span>
           <button class="ed-action" id="saveProjectBtn" title="Save a project file">Save project</button>
           <label class="ed-action ed-import-project" for="projectInput">Open project<input id="projectInput" type="file" accept=".clipnow.json,application/json" class="sr-only"></label>
@@ -154,6 +193,7 @@
           <div class="editor-track editor-track-video" data-track="visual"><div class="editor-track-label"><span>▣</span> Video</div><div class="editor-track-empty">Drop video or images here</div></div>
           <div class="editor-track editor-track-overlay" data-track="overlay"><div class="editor-track-label"><span>T</span> Overlay</div><div class="editor-track-empty">Text and stickers</div></div>
           <div class="editor-track editor-track-audio" data-track="audio"><div class="editor-track-label"><span>♫</span> Audio</div><div class="editor-track-empty">Music and sound</div></div>
+          <div id="markerLayer" aria-label="Timeline markers"></div>
           <div class="editor-playhead" id="timelinePlayhead"><div class="editor-playhead-cap"></div></div>
         </div>
       </div>

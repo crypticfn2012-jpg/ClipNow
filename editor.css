@@ -348,3 +348,78 @@
     grid-template-rows:none;
   }
 }
+
+
+/* Advanced editing tools */
+.editor-panel-tabs { grid-template-columns:repeat(6,minmax(0,1fr)); padding:0 3px; }
+.editor-tool-tab { min-width:0; font-size:9px; gap:3px; }
+.editor-tool-tab > span { font-size:15px; }
+.ed-caption-notice { padding:10px; margin-bottom:12px; border:1px solid #343528; background:#17180f; border-radius:5px; color:#c7c7a8; font-size:10px; line-height:1.5; }
+.ed-caption-progress { min-height:30px; margin:9px 0 15px; color:#a9a9a9; font-size:10px; line-height:1.5; }
+.ed-caption-controls { display:grid; grid-template-columns:minmax(0,1fr) 96px; gap:8px 10px; align-items:center; margin:12px 0; }
+.ed-caption-controls label { color:#999; font-size:10px; }
+.ed-caption-controls input[type=color] { width:100%; height:29px; border:1px solid #383838; background:#111; border-radius:4px; padding:2px; }
+.ed-caption-controls select { width:100%; min-width:0; border:1px solid #383838; background:#111; color:#ddd; padding:7px; border-radius:4px; font:inherit; font-size:10px; }
+.ed-caption-actions { display:flex; flex-wrap:wrap; align-items:center; gap:6px; margin:9px 0; }
+.ed-caption-actions .ed-action { flex:1; white-space:nowrap; }
+.ed-motion-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:7px; margin:12px 0; }
+.ed-motion-preset { display:flex; flex-direction:column; align-items:flex-start; gap:6px; text-align:left; min-height:78px; padding:10px; border-radius:5px; border:1px solid #303030; background:#151515; color:#eaeaea; cursor:pointer; }
+.ed-motion-preset strong { font-size:10px; }
+.ed-motion-preset span { color:#818181; font-size:9px; line-height:1.4; }
+.ed-motion-preset:hover { border-color:#777; background:#1b1b1b; }
+.editor-timeline-actions .ed-action.is-on { border-color:#9ab247; background:#242817; color:#e2f4a5; }
+.editor-timeline-actions .ed-action { flex-shrink:0; }
+#markerLayer { position:absolute; z-index:6; top:0; left:0; right:0; bottom:0; pointer-events:none; }
+.editor-timeline-marker { position:absolute; top:0; bottom:0; width:1px; background:#e4c45f; pointer-events:auto; cursor:pointer; }
+.editor-timeline-marker::before { content:""; position:absolute; top:0; left:-5px; width:11px; height:11px; background:#e4c45f; clip-path:polygon(0 0,100% 0,100% 75%,50% 100%,0 75%); }
+.editor-timeline-marker span { position:absolute; top:12px; left:5px; white-space:nowrap; max-width:100px; overflow:hidden; text-overflow:ellipsis; padding:3px 5px; border-radius:3px; background:#3e361c; color:#f6e7ad; font-size:8px; }
+.editor-track[data-track="visual"] { --track-count:1; }
+.editor-track[data-track="overlay"] { --track-count:1; }
+.editor-track[data-track="audio"] { --track-count:1; }
+.editor-track .editor-track-label { transition:background .12s; }
+.editor-track .editor-track-label:hover { background:#1a1a1a; }
+.editor-timeline-clip.has-keyframes::after { content:"◇"; position:absolute; right:13px; bottom:4px; color:#f1d67b; font-size:12px; text-shadow:0 1px 2px #000; pointer-events:none; }
+.editor-timeline-clip.is-linked { border-style:dashed; }
+@media (max-width:1100px) {
+  .editor-panel-tabs { overflow-x:auto; grid-template-columns:repeat(6,minmax(44px,1fr)); }
+  .editor-timeline-actions { gap:4px; }
+}
+@media (max-width:580px) {
+  .editor-panel-tabs { height:54px; }
+  .editor-tool-tab { font-size:9px; }
+  .ed-motion-grid { gap:5px; }
+}
+
+.editor-timeline-clip.kind-caption { background:linear-gradient(100deg,#72558c,#4d3762); border-color:#c1a1df; }
+.editor-timeline-clip.kind-text { background:linear-gradient(100deg,#49356e,#3b2b60); border-color:#a78bfa; }
+.editor-timeline-clip.kind-sticker { background:linear-gradient(100deg,#6a5025,#4c381a); border-color:#d6ad5c; }
+
+
+/* Keep editing controls reachable without creating page-level scrolling. */
+.editor-timeline-actions {
+  max-width:calc(100vw - 190px);
+  overflow-x:auto;
+  overflow-y:hidden;
+  flex-wrap:nowrap;
+  scrollbar-width:thin;
+  scrollbar-color:#3b3b3b #101010;
+}
+@media (min-width:851px) {
+  .editor-shell { grid-template-rows:minmax(0,1fr) clamp(245px,30vh,300px); }
+}
+@media (min-width:1500px) {
+  .editor-shell { grid-template-rows:minmax(0,1fr) clamp(245px,30vh,300px); }
+}
+@media (max-height:760px) and (min-width:851px) {
+  .editor-shell { grid-template-rows:minmax(0,1fr) 238px; }
+  .editor-preview-header { padding-top:7px; padding-bottom:7px; }
+  .editor-stage-wrap { padding:8px; }
+  .editor-preview-note { display:none; }
+  .editor-panel-tabs { height:48px; }
+  .editor-tool-panel { padding-top:10px; padding-bottom:12px; }
+  .editor-timeline-toolbar { min-height:40px; padding-top:4px; padding-bottom:4px; }
+  .editor-timeline-footer { min-height:23px; padding-top:4px; padding-bottom:4px; }
+}
+@media (max-width:850px) {
+  .editor-timeline-actions { max-width:none; overflow:visible; flex-wrap:wrap; }
+}
