@@ -518,6 +518,7 @@
     const asset = assetFor(item);
     const category = item.kind === "visual" ? (asset && asset.type === "image" ? "Image clip" : "Video clip") :
       item.kind === "audio" ? "Audio track" :
+      item.kind === "caption" ? "Caption layer" :
       item.kind === "text" ? "Text layer" :
       item.kind === "sticker" ? "Sticker layer" : "Image overlay";
     header.textContent = category;
@@ -556,10 +557,16 @@
       return '<div class="ed-form-field"><label for="' + id + '">' + label + (unit ? ' <output data-for="' + prop + '">' + esc(value) + unit + '</output>' : "") + '</label>' + control + '</div>';
     };
     const pair = (a, b) => '<div class="ed-form-grid">' + a + b + '</div>';
+    const trackOptions = kind => {
+      const key = kind === "visual" ? "visual" : kind === "audio" ? "audio" : "overlay";
+      const count = Math.max(1, Number(state.project.trackCounts && state.project.trackCounts[key]) || 1);
+      return Array.from({ length: count }, (_, i) => ({ value: i, label: key === "visual" ? "Video " + (i + 1) : key === "audio" ? "Audio " + (i + 1) : "Overlay " + (i + 1) }));
+    };
     let html = "";
     html += '<div class="ed-inspector-section"><div class="ed-inspector-title">Selected layer</div><div class="ed-form-field"><label>Media</label><div style="font-size:11px;color:#eee;overflow-wrap:anywhere">' + esc(item.name || (asset && asset.name) || item.kind) + '</div><div style="font-size:9px;color:#737373;margin-top:5px">' + esc(category) + ' · ' + fmtShort(itemDuration(item)) + '</div></div></div>';
     if (item.kind === "visual" || item.kind === "audio") {
       html += '<div class="ed-inspector-section"><div class="ed-inspector-title">Timing</div>';
+      html += field("Track", "track", Number(item.track) || 0, { select: trackOptions(item.kind) });
       html += field("Timeline start (s)", "start", item.start, { min: 0, max: 999999, step: 0.1 });
       html += pair(field("Source in (s)", "in", item.in, { min: 0, max: asset ? asset.duration : 999999, step: 0.05 }), field("Source out (s)", "out", item.out, { min: 0.05, max: asset ? asset.duration : 999999, step: 0.05 }));
       html += field("Speed", "speed", item.speed, { range: true, min: 0.25, max: 3, step: 0.05, unit: "×" });
@@ -574,13 +581,23 @@
         html += field("Brightness", "brightness", item.brightness || 0, { range: true, min: -0.5, max: 0.5, step: 0.05, unit: "" });
         html += field("Contrast", "contrast", item.contrast == null ? 1 : item.contrast, { range: true, min: 0.5, max: 1.8, step: 0.05, unit: "×" });
         html += field("Saturation", "saturate", item.saturate == null ? 1 : item.saturate, { range: true, min: 0, max: 2, step: 0.05, unit: "×" });
-        html += '<div class="ed-inspector-title" style="margin-top:15px">Transition out</div>';
+        html += '<div class="ed-form-field"><label for="prop-look">Colour preset</label><select id="prop-look" data-prop="look"><option value="clean"' + ((item.look || "clean") === "clean" ? " selected" : "") + '>Clean</option><option value="cinematic"' + (item.look === "cinematic" ? " selected" : "") + '>Cinematic</option><option value="warm"' + (item.look === "warm" ? " selected" : "") + '>Warm</option><option value="cold"' + (item.look === "cold" ? " selected" : "") + '>Cold</option><option value="vivid"' + (item.look === "vivid" ? " selected" : "") + '>Vivid</option><option value="mono"' + (item.look === "mono" ? " selected" : "") + '>Black & white</option><option value="fade"' + (item.look === "fade" ? " selected" : "") + '>Faded film</option></select></div>';
+        html += field("Hue", "hue", item.hue || 0, { range: true, min: -180, max: 180, step: 5, unit: "°" });
+        html += field("Warmth", "temperature", item.temperature || 0, { range: true, min: -1, max: 1, step: 0.05 });
+        html += field("Vignette", "vignette", item.vignette || 0, { range: true, min: 0, max: 1, step: 0.05 });
+        html += field("Soft focus", "blur", item.blur || 0, { range: true, min: 0, max: 8, step: 0.5, unit: "px" });
+        html += '<div class="ed-inspector-title" style="margin-top:15px">Transform & motion</div>';
+        html += pair(field("X (%)", "x", item.x == null ? 50 : item.x, { min: 0, max: 100, step: 1 }), field("Y (%)", "y", item.y == null ? 50 : item.y, { min: 0, max: 100, step: 1 }));
+        html += field("Scale", "scale", item.scale == null ? 1 : item.scale, { range: true, min: 0.2, max: 3, step: 0.05, unit: "×" });
+        html += pair(field("Rotation (°)", "rotation", item.rotation || 0, { min: -180, max: 180, step: 1 }), field("Opacity", "opacity", item.opacity == null ? 1 : item.opacity, { range: true, min: 0, max: 1, step: 0.05 }));
+        html += '<div class="ed-inspector-title" style="margin-top:12px">Transition out</div>';
         html += '<div class="ed-form-field"><label for="prop-transition">Effect</label><select id="prop-transition" data-prop="transition"><option value="none"' + ((item.transition || "none") === "none" ? " selected" : "") + '>None</option><option value="fade"' + (item.transition === "fade" ? " selected" : "") + '>Fade to black</option><option value="flash"' + (item.transition === "flash" ? " selected" : "") + '>Flash</option><option value="wipe"' + (item.transition === "wipe" ? " selected" : "") + '>Wipe</option></select></div>';
         html += field("Transition duration (s)", "transitionDuration", item.transitionDuration == null ? 0.4 : item.transitionDuration, { range: true, min: 0.1, max: 1.5, step: 0.1, unit: "s" });
         html += '</div>';
       }
     } else {
       html += '<div class="ed-inspector-section"><div class="ed-inspector-title">Timing</div>';
+      html += field("Track", "track", Number(item.track) || 0, { select: trackOptions(item.kind) });
       html += pair(field("Start (s)", "start", item.start, { min: 0, max: 999999, step: 0.1 }), field("Duration (s)", "duration", item.duration, { min: 0.1, max: 999999, step: 0.1 }));
       html += '</div>';
       html += '<div class="ed-inspector-section"><div class="ed-inspector-title">Transform</div>';
@@ -588,7 +605,7 @@
       html += field("Scale", "scale", item.scale, { range: true, min: 0.1, max: item.kind === "imageOverlay" ? 1.5 : 3, step: 0.05, unit: "×" });
       html += pair(field("Rotation (°)", "rotation", item.rotation || 0, { min: -180, max: 180, step: 1 }), field("Opacity", "opacity", item.opacity == null ? 1 : item.opacity, { range: true, min: 0, max: 1, step: 0.05, unit: "" }));
       html += '</div>';
-      if (item.kind === "text") {
+      if (item.kind === "text" || item.kind === "caption") {
         html += '<div class="ed-inspector-section"><div class="ed-inspector-title">Typography</div>';
         html += field("Caption text", "value", item.value, { textarea: true });
         html += pair(field("Font size", "fontSize", item.fontSize || 56, { min: 12, max: 180, step: 1 }), field("Text colour", "color", item.color || "#ffffff", { color: true }));
@@ -598,6 +615,11 @@
         html += '</div>';
       }
     }
+    if (item.kind === "visual") {
+      html += '<button type="button" class="ed-wide-button ed-secondary-button" id="detachAudioBtn">' + (item.linkGroup ? "Select linked audio" : "Detach audio") + '</button>';
+    }
+    if (item.kind !== "audio") html += '<button type="button" class="ed-wide-button" id="inspectorKeyframeBtn">◇ Set keyframe at playhead</button>';
+    if (item.keyframes && item.keyframes.length) html += '<div class="ed-caption-progress">' + item.keyframes.length + ' keyframe(s) · animated properties interpolate between them.</div>';
     html += '<button type="button" class="ed-wide-button ed-secondary-button" id="duplicateItemBtn">Duplicate selected layer</button>';
     body.innerHTML = html;
     body.querySelectorAll("[data-prop]").forEach(input => {
