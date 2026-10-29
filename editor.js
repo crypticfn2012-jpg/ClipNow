@@ -416,9 +416,11 @@
 
   function makeVisualItem(asset, start) {
     return {
-      id: uid(), kind: "visual", assetId: asset.id, name: asset.name,
+      id: uid(), kind: "visual", assetId: asset.id, name: asset.name, track: 0,
       start: Math.max(0, start), in: 0, out: asset.duration, speed: 1,
       volume: 1, fit: "contain", brightness: 0, contrast: 1, saturate: 1,
+      hue: 0, temperature: 0, vignette: 0, blur: 0, look: "clean",
+      x: 50, y: 50, scale: 1, rotation: 0, opacity: 1, keyframes: [],
       fadeIn: 0, fadeOut: 0, transition: "none", transitionDuration: 0.4
     };
   }
@@ -428,9 +430,9 @@
     checkpoint();
     let item;
     if (asset.type === "audio") {
-      item = { id: uid(), kind: "audio", assetId: asset.id, name: asset.name, start: state.time, in: 0, out: asset.duration, speed: 1, volume: 1, fadeIn: 0, fadeOut: 0 };
+      item = { id: uid(), kind: "audio", assetId: asset.id, name: asset.name, track: 0, start: state.time, in: 0, out: asset.duration, speed: 1, volume: 1, fadeIn: 0, fadeOut: 0, keyframes: [] };
     } else if (overlay && asset.type === "image") {
-      item = { id: uid(), kind: "imageOverlay", assetId: asset.id, name: asset.name, start: state.time, duration: 5, x: 50, y: 50, scale: 0.35, opacity: 1, rotation: 0 };
+      item = { id: uid(), kind: "imageOverlay", assetId: asset.id, name: asset.name, track: 0, start: state.time, duration: 5, x: 50, y: 50, scale: 0.35, opacity: 1, rotation: 0, keyframes: [] };
     } else {
       const start = visualTrackEnd();
       item = makeVisualItem(asset, start);
@@ -456,10 +458,10 @@
     const isCaption = preset === "caption";
     const item = {
       id: uid(), kind: "text", name: isCaption ? "Caption" : "Text",
-      value: value, start: state.time, duration: 5, x: 50, y: isCaption ? 84 : 50,
+      value: value, start: state.time, duration: 5, x: 50, y: isCaption ? 84 : 50, track: 0,
       scale: 1, fontSize: isCaption ? 36 : Number($("newTextSize").value) || 56,
-      color: $("newTextColor").value || "#ffffff", background: false,
-      rotation: 0, opacity: 1, align: "center", bold: true, outline: true
+      color: $("newTextColor").value || "#ffffff", background: isCaption,
+      rotation: 0, opacity: 1, align: "center", bold: true, outline: true, keyframes: []
     };
     if (preset === "title") { item.fontSize = 84; item.y = 45; item.scale = 1; }
     state.project.items.push(item);
@@ -471,9 +473,9 @@
   function addSticker(value) {
     checkpoint();
     const item = {
-      id: uid(), kind: "sticker", name: "Sticker " + value, value: value,
+      id: uid(), kind: "sticker", name: "Sticker " + value, value: value, track: 0,
       start: state.time, duration: 4, x: 50, y: 30, scale: 1,
-      opacity: 1, rotation: 0
+      opacity: 1, rotation: 0, keyframes: []
     };
     state.project.items.push(item);
     state.selectedId = item.id;
@@ -1234,7 +1236,9 @@
       state.project = {
         name: String(payload.project.name || "Imported project").slice(0, 80),
         ratio: ASPECTS[payload.project.ratio] ? payload.project.ratio : "16:9",
-        items: remappedItems
+        items: remappedItems,
+        markers: Array.isArray(payload.project.markers) ? payload.project.markers : [],
+        trackCounts: Object.assign({ visual: 1, overlay: 1, audio: 1 }, payload.project.trackCounts || {})
       };
       state.selectedId = null;
       state.time = 0;
