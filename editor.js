@@ -914,7 +914,7 @@
     renderInspector();
     updateHistoryButtons();
     updateClock();
-    $("stageEmpty").hidden = state.project.items.some(item => item.kind !== "audio");
+    $("stageEmpty").hidden = state.project.items.some(item => item.kind === "visual");
     drawFrame();
     $("saveStatus").textContent = "Unsaved changes";
   }
@@ -1584,11 +1584,12 @@
       color: $("captionColor").value || "#ffffff",
       background: $("captionBackground").value === "box",
       outline: $("captionBackground").value !== "none",
-      y: Number($("captionPosition").value) || 84
+      y: Number($("captionPosition").value) || 84,
+      wordHighlight: $("captionHighlight").value === "on"
     };
   }
 
-  function addCaption(text, start, end, style) {
+  function addCaption(text, start, end, style, wordTimings) {
     const value = String(text || "").trim();
     if (!value) return null;
     const chosen = style || activeCaptionStyle();
@@ -1597,7 +1598,9 @@
       start: Math.max(0, Number(start) || 0), duration: Math.max(0.15, (Number(end) || (Number(start) + 2.2)) - (Number(start) || 0)),
       x: 50, y: chosen.y, scale: 1, fontSize: 38, color: chosen.color,
       background: !!chosen.background, outline: !!chosen.outline, bold: true, opacity: 1,
-      rotation: 0, align: "center", track: 0, keyframes: []
+      rotation: 0, align: "center", track: 0, keyframes: [],
+      wordHighlight: !!chosen.wordHighlight,
+      wordTimings: Array.isArray(wordTimings) ? wordTimings.map(word => ({ text: String(word.text || ""), start: Number(word.start), end: Number(word.end) })) : []
     };
     state.project.items.push(item);
     return item;
@@ -1676,7 +1679,7 @@
       const library = await import(url);
       const pipeline = library.pipeline;
       if (typeof pipeline !== "function") throw new Error("The speech model library did not load.");
-      return pipeline("automatic-speech-recognition", "Xenova/whisper-tiny.en", {
+      return pipeline("automatic-speech-recognition", "Xenova/whisper-tiny", {
         progress_callback: progress => {
           if (progress && progress.status === "progress" && Number.isFinite(progress.progress)) {
             $("captionStatus").textContent = "Downloading speech model… " + Math.round(progress.progress) + "%";
@@ -1781,11 +1784,12 @@
         if (!text || !Number.isFinite(start) || !Number.isFinite(end) || end <= start) return;
         if (!current || current.words >= 6 || end - current.start > 2.8 || /[.!?]$/.test(current.text)) {
           if (current) chunks.push(current);
-          current = { text, start, end, words: 1 };
+          current = { text, start, end, words: 1, wordTimings: [{ text, start, end }] };
         } else {
           current.text += text.startsWith("'") || /^[,.;:!?]/.test(text) ? text : " " + text;
           current.end = end;
           current.words++;
+          current.wordTimings.push({ text, start, end });
         }
       });
       if (current) chunks.push(current);
@@ -1803,7 +1807,12 @@
       chunks.forEach(chunk => {
         const start = item.start + Math.max(0, chunk.start) / speed;
         const end = item.start + Math.max(chunk.start + 0.15, chunk.end) / speed;
-        const caption = addCaption(chunk.text, start, end, style);
+        const wordTimings = Array.isArray(chunk.wordTimings) ? chunk.wordTimings.map(word => ({
+          text: word.text,
+          start: item.start + Math.max(0, word.start) / speed,
+          end: item.start + Math.max(word.start + 0.03, word.end) / speed
+        })) : [];
+        const caption = addCaption(chunk.text, start, end, style, wordTimings);
         if (caption) created.push(caption);
       });
       state.selectedId = created.length ? created[0].id : state.selectedId;
