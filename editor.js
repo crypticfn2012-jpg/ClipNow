@@ -794,7 +794,7 @@
     let best = Math.max(0, value);
     if (!state.snapEnabled) return best;
     let distance = 0.12;
-    const targets = [state.time];
+    const targets = [state.time, ...(state.project.markers || []).map(marker => marker.time)];
     state.project.items.forEach(item => {
       if (item.id === movingItem.id) return;
       targets.push(item.start, itemEnd(item));
@@ -821,13 +821,17 @@
     const edge = event.target && event.target.dataset ? event.target.dataset.edge || "move" : "move";
     const pps = getTimelinePixelsPerSecond();
     const startX = event.clientX;
-    const original = { start: item.start, in: item.in, out: item.out, duration: item.duration };
+    const startY = event.clientY;
+    const original = { start: item.start, in: item.in, out: item.out, duration: item.duration, track: Number(item.track) || 0 };
     checkpoint();
     let changed = false;
     const move = ev => {
       const dx = (ev.clientX - startX) / pps;
       if (edge === "move") {
         item.start = snapStart(Math.max(0, original.start + dx), item);
+        const trackKey = itemTrack(item);
+        const count = Math.max(1, Number(state.project.trackCounts && state.project.trackCounts[trackKey]) || 1);
+        item.track = clamp(original.track + Math.round((ev.clientY - startY) / 48), 0, count - 1);
       } else if (item.kind === "visual" || item.kind === "audio") {
         const speed = Math.max(0.25, Number(item.speed) || 1);
         const asset = assetFor(item);
@@ -853,6 +857,7 @@
       changed = true;
       const x = TRACK_LABEL + item.start * pps;
       element.style.left = x + "px";
+      element.style.top = (6 + (Number(item.track) || 0) * 48) + "px";
       element.style.width = Math.max(12, itemDuration(item) * pps) + "px";
       const newWidth = Math.max(1100, TRACK_LABEL + Math.max(15, projectDuration() + 1) * pps);
       timelineContent.style.width = newWidth + "px";
