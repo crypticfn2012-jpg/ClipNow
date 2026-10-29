@@ -1109,24 +1109,64 @@
     ctx.globalAlpha = 1;
     ctx.fillStyle = "#000";
     ctx.fillRect(0, 0, w, h);
-    const visual = activeItem("visual", state.time);
+
+    const rawVisual = activeItem("visual", state.time);
+    const visual = rawVisual ? animatedProperties(rawVisual, state.time) : null;
     if (visual) {
       const asset = assetFor(visual);
       if (asset && asset.element && (asset.type === "image" || (asset.type === "video" && asset.element.readyState >= 2))) {
-        const d = Math.max(0.001, itemDuration(visual));
-        const elapsed = state.time - visual.start;
-        let alpha = 1;
-        if (visual.fadeIn > 0) alpha = Math.min(alpha, clamp(elapsed / visual.fadeIn, 0, 1));
-        if (visual.fadeOut > 0) alpha = Math.min(alpha, clamp((d - elapsed) / visual.fadeOut, 0, 1));
+        const d = Math.max(0.001, itemDuration(rawVisual));
+        const elapsed = state.time - rawVisual.start;
+        let alpha = clamp(visual.opacity == null ? 1 : visual.opacity, 0, 1);
+        if (rawVisual.fadeIn > 0) alpha = Math.min(alpha, clamp(elapsed / rawVisual.fadeIn, 0, 1));
+        if (rawVisual.fadeOut > 0) alpha = Math.min(alpha, clamp((d - elapsed) / rawVisual.fadeOut, 0, 1));
+        const look = LOOK_PRESETS[visual.look || "clean"] || LOOK_PRESETS.clean;
+        const brightness = clamp((Number(visual.brightness) || 0) + (look.brightness - 1), -0.8, 1.5) + 1;
+        const contrast = clamp((Number(visual.contrast) || 1) * look.contrast, 0.2, 2.5);
+        const saturate = clamp((Number(visual.saturate) == null ? 1 : Number(visual.saturate)) * look.saturate, 0, 3);
+        const hue = (Number(visual.hue) || 0) + look.hue;
+        const sepia = clamp(look.sepia * 100, 0, 100);
+        const grey = clamp(look.grayscale * 100, 0, 100);
+        const blur = clamp(Number(visual.blur) || 0, 0, 8);
+        const scale = clamp(Number(visual.scale) || 1, 0.1, 3);
+        const x = clamp(visual.x == null ? 50 : visual.x, 0, 100) / 100 * w;
+        const y = clamp(visual.y == null ? 50 : visual.y, 0, 100) / 100 * h;
+        ctx.save();
         ctx.globalAlpha = alpha;
-        ctx.filter = "brightness(" + (1 + (Number(visual.brightness) || 0)) + ") contrast(" + (Number(visual.contrast) || 1) + ") saturate(" + (Number(visual.saturate) || 1) + ")";
-        drawFittedImage(asset.element, visual.fit || "contain", 0, 0, w, h);
+        ctx.translate(x, y);
+        ctx.rotate((Number(visual.rotation) || 0) * Math.PI / 180);
+        ctx.filter = "brightness(" + brightness + ") contrast(" + contrast + ") saturate(" + saturate + ") hue-rotate(" + hue + "deg) sepia(" + sepia + "%) grayscale(" + grey + "%) blur(" + blur + "px)";
+        drawFittedImage(asset.element, visual.fit || "contain", -w * scale / 2, -h * scale / 2, w * scale, h * scale);
         ctx.filter = "none";
+        const temperature = clamp((Number(visual.temperature) || 0) + look.temperature, -1, 1);
+        if (temperature > 0.01) {
+          ctx.fillStyle = "rgba(255,151,77," + (temperature * 0.22) + ")";
+          ctx.fillRect(-w * scale / 2, -h * scale / 2, w * scale, h * scale);
+        } else if (temperature < -0.01) {
+          ctx.fillStyle = "rgba(72,145,255," + (-temperature * 0.2) + ")";
+          ctx.fillRect(-w * scale / 2, -h * scale / 2, w * scale, h * scale);
+        }
+        const vignette = clamp(Number(visual.vignette) || 0, 0, 1);
+        if (vignette > 0.01) {
+          const radius = Math.max(w, h) * 0.72 * scale;
+          const gradient = ctx.createRadialGradient(0, 0, Math.min(w, h) * 0.15 * scale, 0, 0, radius);
+          gradient.addColorStop(0, "rgba(0,0,0,0)");
+          gradient.addColorStop(0.55, "rgba(0,0,0," + (vignette * 0.12) + ")");
+          gradient.addColorStop(1, "rgba(0,0,0," + (vignette * 0.88) + ")");
+          ctx.fillStyle = gradient;
+          ctx.fillRect(-w * scale / 2, -h * scale / 2, w * scale, h * scale);
+        }
+        ctx.restore();
       }
     }
-    const overlays = state.project.items.filter(item => ["text", "sticker", "imageOverlay"].includes(item.kind) && state.time >= item.start && state.time < itemEnd(item));
-    overlays.sort((a, b) => a.start - b.start);
-    overlays.forEach(item => {
+
+    const overlays = state.project.items.filter(item =>
+      ["text", "caption", "sticker", "imageOverlay"].includes(item.kind) &&
+      state.time >= item.start && state.time < itemEnd(item)
+    );
+    overlays.sort((a, b) => (Number(a.track) || 0) - (Number(b.track) || 0) || a.start - b.start);
+    overlays.forEach(raw => {
+      const item = animatedProperties(raw, state.time);
       ctx.save();
       ctx.globalAlpha = clamp(item.opacity == null ? 1 : item.opacity, 0, 1);
       const x = clamp(item.x == null ? 50 : item.x, 0, 100) / 100 * w;
@@ -1135,7 +1175,7 @@
       ctx.rotate((Number(item.rotation) || 0) * Math.PI / 180);
       const unit = w / 1280;
       const scale = Number(item.scale) || 1;
-      if (item.kind === "text") {
+      if (item.kind === "text" || item.kind === "caption") {
         const fontSize = Math.max(12, (Number(item.fontSize) || 56) * unit * scale);
         ctx.font = (item.bold === false ? "500 " : "800 ") + fontSize + "px Arial, Helvetica, sans-serif";
         ctx.textAlign = item.align || "center";
@@ -1145,7 +1185,7 @@
         const totalHeight = lines.length * lineHeight;
         if (item.background) {
           const maxWidth = Math.max.apply(null, lines.map(line => ctx.measureText(line).width).concat([0]));
-          ctx.fillStyle = "rgba(0,0,0,.68)";
+          ctx.fillStyle = item.kind === "caption" ? "rgba(0,0,0,.76)" : "rgba(0,0,0,.68)";
           roundedRect(ctx, -maxWidth / 2 - fontSize * 0.22, -totalHeight / 2 - fontSize * 0.12, maxWidth + fontSize * 0.44, totalHeight + fontSize * 0.24, fontSize * 0.12);
           ctx.fill();
         }
@@ -1177,8 +1217,9 @@
       }
       ctx.restore();
     });
+
     if (visual && visual.transition && visual.transition !== "none") {
-      const remaining = itemEnd(visual) - state.time;
+      const remaining = itemEnd(rawVisual) - state.time;
       const transitionDuration = clamp(visual.transitionDuration == null ? 0.4 : visual.transitionDuration, 0.1, 1.5);
       if (remaining >= 0 && remaining < transitionDuration) {
         const phase = clamp(1 - remaining / transitionDuration, 0, 1);
