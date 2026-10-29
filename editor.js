@@ -632,14 +632,24 @@
     const asset = assetFor(item);
     const boolProps = ["bold", "outline", "background"];
     if (boolProps.includes(prop)) value = Boolean(rawValue);
-    else if (["fit", "color", "value", "transition"].includes(prop)) value = String(rawValue);
+    else if (["fit", "color", "value", "transition", "look"].includes(prop)) value = String(rawValue);
     else value = Number(rawValue);
     if (prop === "start") value = Math.max(0, value || 0);
     if (prop === "duration") value = Math.max(0.1, value || 0.1);
     if (prop === "in") value = clamp(value, 0, Math.max(0, Number(item.out) - 0.05));
     if (prop === "out") value = clamp(value, Number(item.in) + 0.05, asset ? asset.duration : Math.max(Number(item.in) + 0.05, value));
+    if (prop === "track") {
+      const key = itemTrack(item);
+      const count = Math.max(1, Number(state.project.trackCounts && state.project.trackCounts[key]) || 1);
+      value = clamp(Math.floor(value), 0, count - 1);
+    }
     if (prop === "speed") value = clamp(value, 0.25, 3);
     if (prop === "volume") value = clamp(value, 0, 2);
+    if (prop === "hue") value = clamp(value, -180, 180);
+    if (prop === "temperature") value = clamp(value, -1, 1);
+    if (prop === "vignette") value = clamp(value, 0, 1);
+    if (prop === "blur") value = clamp(value, 0, 8);
+    if (prop === "transitionDuration") value = clamp(value, 0.1, 1.5);
     if (prop === "fadeIn" || prop === "fadeOut") value = clamp(value, 0, Math.max(0, itemDuration(item)));
     if (prop === "brightness") value = clamp(value, -0.5, 0.5);
     if (prop === "contrast") value = clamp(value, 0.5, 1.8);
@@ -1189,6 +1199,43 @@
     }
     ctx.restore();
   }
+
+  function animatedProperties(item, time) {
+    const base = Object.assign({}, item);
+    const frames = Array.isArray(item.keyframes) ? item.keyframes.slice().sort((a, b) => a.time - b.time) : [];
+    if (!frames.length) return base;
+    const props = ["x", "y", "scale", "rotation", "opacity"];
+    if (time <= frames[0].time) {
+      props.forEach(key => { if (Number.isFinite(frames[0][key])) base[key] = frames[0][key]; });
+      return base;
+    }
+    if (time >= frames[frames.length - 1].time) {
+      props.forEach(key => { if (Number.isFinite(frames[frames.length - 1][key])) base[key] = frames[frames.length - 1][key]; });
+      return base;
+    }
+    let left = frames[0], right = frames[1];
+    for (let i = 0; i < frames.length - 1; i++) {
+      if (time >= frames[i].time && time <= frames[i + 1].time) { left = frames[i]; right = frames[i + 1]; break; }
+    }
+    const amount = clamp((time - left.time) / Math.max(0.0001, right.time - left.time), 0, 1);
+    const ease = amount * amount * (3 - 2 * amount);
+    props.forEach(key => {
+      const a = Number.isFinite(left[key]) ? left[key] : (Number.isFinite(base[key]) ? base[key] : (key === "opacity" || key === "scale" ? 1 : 0));
+      const b = Number.isFinite(right[key]) ? right[key] : a;
+      base[key] = a + (b - a) * ease;
+    });
+    return base;
+  }
+
+  const LOOK_PRESETS = {
+    clean: { brightness: 1, contrast: 1, saturate: 1, hue: 0, sepia: 0, grayscale: 0, temperature: 0 },
+    cinematic: { brightness: 0.96, contrast: 1.18, saturate: 0.88, hue: -3, sepia: 0.08, grayscale: 0, temperature: 0.18 },
+    warm: { brightness: 1.02, contrast: 1.04, saturate: 1.12, hue: -5, sepia: 0.13, grayscale: 0, temperature: 0.45 },
+    cold: { brightness: 1, contrast: 1.1, saturate: 0.92, hue: 12, sepia: 0, grayscale: 0, temperature: -0.42 },
+    vivid: { brightness: 1.02, contrast: 1.12, saturate: 1.42, hue: 0, sepia: 0, grayscale: 0, temperature: 0 },
+    mono: { brightness: 1.02, contrast: 1.1, saturate: 0, hue: 0, sepia: 0, grayscale: 1, temperature: 0 },
+    fade: { brightness: 1.08, contrast: 0.82, saturate: 0.8, hue: 0, sepia: 0.12, grayscale: 0, temperature: 0.12 }
+  };
 
   function roundedRect(c, x, y, width, height, radius) {
     const r = Math.min(radius, width / 2, height / 2);
