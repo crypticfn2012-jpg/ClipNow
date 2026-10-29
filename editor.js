@@ -92,7 +92,8 @@
   }
   function itemEnd(item) { return (Number(item.start) || 0) + itemDuration(item); }
   function volumeAtTime(item, time) {
-    let volume = clamp(item.volume == null ? 1 : item.volume, 0, 2);
+    const animated = animatedProperties(item, time);
+    let volume = clamp(animated.volume == null ? (item.volume == null ? 1 : item.volume) : animated.volume, 0, 2);
     const elapsed = time - item.start;
     const remaining = itemEnd(item) - time;
     if (Number(item.fadeIn) > 0) volume *= clamp(elapsed / Number(item.fadeIn), 0, 1);
@@ -624,7 +625,7 @@
     if (item.kind === "visual") {
       html += '<button type="button" class="ed-wide-button ed-secondary-button" id="detachAudioBtn">' + (item.linkGroup ? "Select linked audio" : "Detach audio") + '</button>';
     }
-    if (item.kind !== "audio") html += '<button type="button" class="ed-wide-button" id="inspectorKeyframeBtn">◇ Set keyframe at playhead</button>';
+    html += '<button type="button" class="ed-wide-button" id="inspectorKeyframeBtn">◇ Set keyframe at playhead</button>';
     if (item.keyframes && item.keyframes.length) html += '<div class="ed-caption-progress">' + item.keyframes.length + ' keyframe(s) · animated properties interpolate between them.</div>';
     html += '<button type="button" class="ed-wide-button ed-secondary-button" id="duplicateItemBtn">Duplicate selected layer</button>';
     body.innerHTML = html;
@@ -648,7 +649,7 @@
     const asset = assetFor(item);
     const boolProps = ["bold", "outline", "background"];
     if (boolProps.includes(prop)) value = Boolean(rawValue);
-    else if (["fit", "color", "value", "transition", "look"].includes(prop)) value = String(rawValue);
+    else if (["fit", "color", "value", "transition", "look", "easing", "fontFamily"].includes(prop)) value = String(rawValue);
     else value = Number(rawValue);
     if (prop === "start") value = Math.max(0, value || 0);
     if (prop === "duration") value = Math.max(0.1, value || 0.1);
@@ -665,6 +666,7 @@
     if (prop === "temperature") value = clamp(value, -1, 1);
     if (prop === "vignette") value = clamp(value, 0, 1);
     if (prop === "blur") value = clamp(value, 0, 8);
+    if (prop === "motionBlur") value = clamp(value, 0, 1);
     if (prop === "transitionDuration") value = clamp(value, 0.1, 1.5);
     if (prop === "fadeIn" || prop === "fadeOut") value = clamp(value, 0, Math.max(0, itemDuration(item)));
     if (prop === "brightness") value = clamp(value, -0.5, 0.5);
@@ -1326,7 +1328,7 @@
     const base = Object.assign({}, item);
     const frames = Array.isArray(item.keyframes) ? item.keyframes.slice().sort((a, b) => a.time - b.time) : [];
     if (!frames.length) return base;
-    const props = ["x", "y", "scale", "rotation", "opacity"];
+    const props = ["x", "y", "scale", "rotation", "opacity", "volume"];
     if (time <= frames[0].time) {
       props.forEach(key => { if (Number.isFinite(frames[0][key])) base[key] = frames[0][key]; });
       return base;
@@ -1340,9 +1342,17 @@
       if (time >= frames[i].time && time <= frames[i + 1].time) { left = frames[i]; right = frames[i + 1]; break; }
     }
     const amount = clamp((time - left.time) / Math.max(0.0001, right.time - left.time), 0, 1);
-    const ease = amount * amount * (3 - 2 * amount);
+    let ease = amount;
+    switch (item.easing || "ease-in-out") {
+      case "ease-in": ease = amount * amount; break;
+      case "ease-out": ease = 1 - Math.pow(1 - amount, 2); break;
+      case "ease-in-out": ease = amount * amount * (3 - 2 * amount); break;
+      case "step": ease = amount >= 1 ? 1 : 0; break;
+      default: ease = amount; break;
+    }
     props.forEach(key => {
-      const a = Number.isFinite(left[key]) ? left[key] : (Number.isFinite(base[key]) ? base[key] : (key === "opacity" || key === "scale" ? 1 : 0));
+      const fallback = key === "opacity" || key === "scale" || key === "volume" ? 1 : 0;
+      const a = Number.isFinite(left[key]) ? left[key] : (Number.isFinite(base[key]) ? base[key] : fallback);
       const b = Number.isFinite(right[key]) ? right[key] : a;
       base[key] = a + (b - a) * ease;
     });
@@ -1440,7 +1450,6 @@
     let item = selectedItem();
     if ($("motionTarget").value === "visual") item = activeItem("visual", state.time);
     if (!item) { notify("Select a video, caption, sticker or image layer first."); return; }
-    if (item.kind === "audio") { notify("Audio keyframes aren't supported yet. Use volume and fade controls instead."); return; }
     if (state.time < item.start || state.time > itemEnd(item)) {
       notify("Move the playhead inside the selected layer before setting a keyframe.");
       return;
@@ -1452,7 +1461,8 @@
       y: Number(values.y == null ? 50 : values.y),
       scale: Number(values.scale == null ? 1 : values.scale),
       rotation: Number(values.rotation) || 0,
-      opacity: Number(values.opacity == null ? 1 : values.opacity)
+      opacity: Number(values.opacity == null ? 1 : values.opacity),
+      volume: Number(values.volume == null ? (item.volume == null ? 1 : item.volume) : values.volume)
     };
     checkpoint();
     item.keyframes = Array.isArray(item.keyframes) ? item.keyframes : [];
